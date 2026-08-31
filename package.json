@@ -1,0 +1,65 @@
+{
+  "name": "room-management-paroki-mabes",
+  "type": "module",
+  "private": true,
+  "author": {
+    "name": "ChillDev",
+    "email": "adm.chilldev@gmail.com"
+  },
+  "contributors": [
+    {
+      "name": "Nicholas",
+      "email": "nicholaslim082003@gmail.com"
+    },
+    {
+      "name": "Justien Venerdi",
+      "email": "jvenerdix@gmail.com"
+    },
+    {
+      "name": "Stephan Chandra",
+      "email": "stephanchandra.chandra@gmail.com"
+    }
+  ],
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "dev:cf": "nuxt build && wrangler dev --local",
+    "generate": "nuxt generate",
+    "migrate:local": "wrangler d1 migrations apply paroki-mabes-db --local",
+    "migrate:remote": "wrangler d1 migrations apply paroki-mabes-db --remote",
+    "seed:local": "wrangler d1 execute paroki-mabes-db --local --file=seed.sql",
+    "seed:remote": "wrangler d1 execute paroki-mabes-db --remote --file=seed.sql",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@fullcalendar/core": "^6.1.20",
+    "@fullcalendar/daygrid": "^6.1.20",
+    "@fullcalendar/interaction": "^6.1.20",
+    "@fullcalendar/timegrid": "^6.1.20",
+    "@fullcalendar/vue3": "^6.1.20",
+    "@types/file-saver": "^2.0.7",
+    "@types/node": "^25.0.10",
+    "exceljs": "^3.4.0",
+    "file-saver": "^2.0.5",
+    "mysql2": "^3.23.4",
+    "nuxt": "^4.2.2",
+    "pdf-lib": "^1.17.1",
+    "qr-scanner": "^1.4.2",
+    "signature_pad": "^5.1.3",
+    "sweetalert2": "^11.26.17",
+    "vee-validate": "^4.15.0",
+    "vue": "^3.5.26",
+    "vue-draggable-resizable": "^3.0.0",
+    "vue-pdf-embed": "^2.1.3",
+    "vue-router": "^4.6.4",
+    "yup": "^1.6.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260119.0",
+    "@iconify-json/mdi": "^1.2.3",
+    "@nuxt/icon": "^2.2.0",
+    "@nuxtjs/tailwindcss": "^6.14.0",
+    "wrangler": "^4.60.0"
+  }
+}

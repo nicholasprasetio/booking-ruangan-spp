@@ -1,0 +1,40 @@
+name = "room-management-paroki-mabes"
+main = ".output/server/index.mjs"
+compatibility_date = "2025-07-15"
+compatibility_flags = ["nodejs_compat"]
+
+# Serves static assets from /public when possible
+assets = { directory = ".output/public" }
+
+[observability]
+[observability.logs]
+enabled = true
+invocation_logs = true
+
+[vars]
+JWT_EXPIRES_SECONDS = "604800"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "paroki-mabes-db"
+database_id = "5ad0a50f-995e-4836-9ed1-e8d632a21a44"
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "paroki-mabes-bucket"
+
+# ── Presigned upload credentials ─────────────────────────────────────────────
+# Required for direct-to-R2 browser uploads via presigned PUT URLs.
+# Add these as Cloudflare secrets (NOT in wrangler.toml):
+#   wrangler secret put R2_ACCOUNT_ID
+#   wrangler secret put R2_ACCESS_KEY_ID
+#   wrangler secret put R2_SECRET_ACCESS_KEY
+#   wrangler secret put R2_BUCKET_NAME
+#
+# Generate an R2 API token at: Cloudflare Dashboard → R2 → Manage R2 API tokens
+# Choose "Object Read & Write" permission scoped to the bucket.
+#
+# Also configure CORS on the R2 bucket to allow browser PUT uploads:
+# Cloudflare Dashboard → R2 → <bucket> → Settings → CORS Policy:
+# [{"AllowedOrigins":["https://your-domain.com"],"AllowedMethods":["PUT"],"AllowedHeaders":["Content-Type"],"MaxAgeSeconds":300}]
+
