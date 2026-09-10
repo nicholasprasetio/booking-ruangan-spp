@@ -61,7 +61,7 @@
             >
               <img
                 v-if="room.photos?.length"
-                :src="room.photos[getRoomPhotoIndex(room.id)]?.url"
+                :src="room.photos[getRoomPhotoIndex(room.id)]?.thumbnailUrl || room.photos[getRoomPhotoIndex(room.id)]?.url"
                 :alt="tr('Foto ruangan', 'Room photo')"
                 class="h-full w-full object-contain cursor-pointer"
                 @click="openGallery(room, getRoomPhotoIndex(room.id))"
@@ -215,7 +215,7 @@
                 :class="idx === galleryIndex ? 'border-indigo-500' : 'border-gray-100'"
                 @click="galleryIndex = idx"
               >
-                  <img :src="photo.url" :alt="tr('Foto ruangan', 'Room photo')" class="h-16 w-full object-contain bg-gray-50" />
+                  <img :src="photo.thumbnailUrl || photo.url" :alt="tr('Foto ruangan', 'Room photo')" loading="lazy" decoding="async" class="h-16 w-full object-contain bg-gray-50" />
               </button>
             </div>
           </div>
@@ -229,7 +229,7 @@
             :class="idx === galleryIndex ? 'border-indigo-500' : 'border-gray-100'"
             @click="galleryIndex = idx"
           >
-              <img :src="photo.url" :alt="tr('Foto ruangan', 'Room photo')" class="h-16 w-full object-contain bg-gray-50" />
+              <img :src="photo.thumbnailUrl || photo.url" :alt="tr('Foto ruangan', 'Room photo')" loading="lazy" decoding="async" class="h-16 w-full object-contain bg-gray-50" />
           </button>
         </div>
       </div>

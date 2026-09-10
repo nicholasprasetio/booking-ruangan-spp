@@ -134,7 +134,7 @@ export default defineEventHandler(async (event) => {
     bookingRows.push(...(bookingsRes.results || []))
   }
 
-  const photosByRoom = new Map<number, Array<{ id: number; url: string; created_at: string | null }>>()
+  const photosByRoom = new Map<number, Array<{ id: number; url: string; thumbnailUrl: string; created_at: string | null }>>()
   if (roomIds.length > 0) {
     const photoPlaceholders = roomIds.map(() => '?').join(', ')
     const photos = await env.DB
@@ -158,6 +158,7 @@ export default defineEventHandler(async (event) => {
       list.push({
         id: photo.id,
         url: `/api/rooms/photos/${photo.id}`,
+        thumbnailUrl: `/api/rooms/photos/${photo.id}/thumbnail`,
         created_at: photo.created_at,
       })
       photosByRoom.set(photo.room_id, list)
@@ -174,7 +175,7 @@ export default defineEventHandler(async (event) => {
     open_time_end: string | null
     slot_minutes: number | null
     available_for_booking: number | null
-    photos: Array<{ id: number; url: string; created_at: string | null }>
+    photos: Array<{ id: number; url: string; thumbnailUrl: string; created_at: string | null }>
     bookings: any[]
   }>()
 

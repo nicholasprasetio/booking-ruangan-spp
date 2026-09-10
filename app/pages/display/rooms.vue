@@ -98,10 +98,13 @@ function tickClock() {
   clock.value = new Date().toLocaleTimeString(localeTag.value, { hour: '2-digit', minute: '2-digit' })
 }
 
-function timeOnly(iso: string) {
-  return new Date(iso).toLocaleTimeString(localeTag.value, { hour: '2-digit', minute: '2-digit' })
-}
+function timeOnly(value: string) {
 
+  const match = String(value || '').match(/[ T](\d{2}):(\d{2})/)
+
+  return match ? `${match[1]}:${match[2]}` : '-'
+
+}
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(localeTag.value, { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
 }

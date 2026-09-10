@@ -195,7 +195,7 @@ export default defineEventHandler(async (event) => {
   const pagedRooms = roomsWithAvailability.slice(offset, offset + pageSize)
   const pagedIds = pagedRooms.map((room) => Number(room.id))
 
-  const photosByRoom = new Map<number, Array<{ id: number; url: string; created_at: string | null }>>()
+  const photosByRoom = new Map<number, Array<{ id: number; url: string; thumbnailUrl: string; created_at: string | null }>>()
   if (pagedIds.length) {
     const placeholders = pagedIds.map(() => '?').join(', ')
     const photos = await env.DB
@@ -211,7 +211,17 @@ export default defineEventHandler(async (event) => {
 
     for (const photo of photos.results || []) {
       const list = photosByRoom.get(Number(photo.room_id)) || []
-      list.push({ id: Number(photo.id), url: `/api/rooms/photos/${photo.id}`, created_at: photo.created_at })
+      list.push({
+
+        id: Number(photo.id),
+
+        url: `/api/rooms/photos/${photo.id}`,
+
+        thumbnailUrl: `/api/rooms/photos/${photo.id}/thumbnail`,
+
+        created_at: photo.created_at,
+
+      })
       photosByRoom.set(Number(photo.room_id), list)
     }
   }

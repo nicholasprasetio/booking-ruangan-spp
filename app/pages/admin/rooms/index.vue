@@ -149,11 +149,15 @@
                     <div class="flex items-center gap-1.5">
                       <div v-if="room.photos.length" class="flex -space-x-2">
                         <img
-                          v-for="photo in room.photos.slice(0, 3)"
-                          :key="photo.id"
-                          :src="photoCache.resolve(photo)"
-                          class="w-8 h-8 rounded-lg border-2 border-white object-cover shadow-sm"
-                        />
+  v-for="photo in room.photos.slice(0, 3)"
+  :key="photo.id"
+  :src="photo.thumbnailUrl || photoCache.resolve(photo)"
+  loading="lazy"
+  decoding="async"
+  width="32"
+  height="32"
+  class="w-8 h-8 rounded-lg border-2 border-white object-cover shadow-sm"
+/>
                         <div v-if="room.photos.length > 3" class="w-8 h-8 rounded-lg border-2 border-white bg-gray-200 flex items-center justify-center text-xs font-semibold text-gray-600">
                           +{{ room.photos.length - 3 }}
                         </div>
@@ -863,3 +867,4 @@ onMounted(() => {
   refresh()
 })
 </script>
+

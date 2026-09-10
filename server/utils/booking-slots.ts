@@ -68,12 +68,12 @@ export function buildSlotStartIsosForDate(input: BuildSlotStartIsosForDateInput)
       throw createError({ statusCode: 400, statusMessage: misalignedMessage })
     }
 
-    const slotStart = new Date(`${ymd}T${slot}:00.000${tzOffset}`)
-    if (isNaN(slotStart.getTime())) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
       throw createError({ statusCode: 400, statusMessage: invalidDateTimeMessage })
     }
 
-    slotStartIsos.push(toIsoNoMs(slotStart))
+    // Simpan sebagai MySQL DATETIME wall-clock Asia/Jakarta (WIB).
+    slotStartIsos.push(`${ymd} ${slot}:00`)
   }
 
   return slotStartIsos

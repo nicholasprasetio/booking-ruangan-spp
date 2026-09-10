@@ -19,23 +19,68 @@ type BookingRow = {
 }
 
 function toIsoDayRange(dateStr?: string): { dayStart: string; dayEnd: string; label: string } {
-  if (!dateStr) {
-    const now = new Date()
-    const y = now.getUTCFullYear()
-    const m = String(now.getUTCMonth() + 1).padStart(2, '0')
-    const d = String(now.getUTCDate()).padStart(2, '0')
-    dateStr = `${y}-${m}-${d}`
-  }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-    throw createError({ statusCode: 400, statusMessage: 'Invalid date (expected YYYY-MM-DD)' })
-  }
-  const dayStart = new Date(`${dateStr}T00:00:00.000+07:00`)
-  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000)
-  const startIso = dayStart.toISOString().replace(/\.\d{3}Z$/, 'Z')
-  const endIso = dayEnd.toISOString().replace(/\.\d{3}Z$/, 'Z')
-  return { dayStart: startIso, dayEnd: endIso, label: dateStr }
-}
 
+  if (!dateStr) {
+
+    const now = new Date()
+
+    const parts = new Intl.DateTimeFormat('en-CA', {
+
+      timeZone: 'Asia/Jakarta',
+
+      year: 'numeric',
+
+      month: '2-digit',
+
+      day: '2-digit',
+
+    }).formatToParts(now)
+
+    const y = parts.find((p) => p.type === 'year')?.value
+
+    const m = parts.find((p) => p.type === 'month')?.value
+
+    const d = parts.find((p) => p.type === 'day')?.value
+
+    dateStr = `${y}-${m}-${d}`
+
+  }
+
+
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+
+    throw createError({ statusCode: 400, statusMessage: 'Invalid date (expected YYYY-MM-DD)' })
+
+  }
+
+
+
+  const [year, month, day] = dateStr.split('-').map(Number)
+
+  const nextDay = new Date(Date.UTC(year, month - 1, day + 1))
+
+  const pad = (n: number) => String(n).padStart(2, '0')
+
+
+
+  const nextDayStr =
+
+    `${nextDay.getUTCFullYear()}-${pad(nextDay.getUTCMonth() + 1)}-${pad(nextDay.getUTCDate())}`
+
+
+
+  return {
+
+    dayStart: `${dateStr} 00:00:00`,
+
+    dayEnd: `${nextDayStr} 00:00:00`,
+
+    label: dateStr,
+
+  }
+
+}
 function isActive(nowIso: string, start: string, end: string): boolean {
   return start <= nowIso && nowIso < end
 }
@@ -63,7 +108,25 @@ export default defineEventHandler(async (event) => {
     typeof q.excludeOccurrenceId === 'string' && q.excludeOccurrenceId.trim() && !isNaN(Number(q.excludeOccurrenceId))
       ? Number(q.excludeOccurrenceId)
       : null
-  const nowIso = new Date().toISOString().slice(0, 19).replace('T', ' ').slice(0, 19).replace('T', ' ').replace(/\.\d{3}Z$/, 'Z')
+  const nowIso = new Intl.DateTimeFormat('sv-SE', {
+
+    timeZone: 'Asia/Jakarta',
+
+    year: 'numeric',
+
+    month: '2-digit',
+
+    day: '2-digit',
+
+    hour: '2-digit',
+
+    minute: '2-digit',
+
+    second: '2-digit',
+
+    hourCycle: 'h23',
+
+  }).format(new Date())
 
   const rows = await env.DB
     .prepare(

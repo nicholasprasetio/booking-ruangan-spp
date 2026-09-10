@@ -110,7 +110,7 @@
         <ClientOnly>
           <template v-if="auth.isLoggedIn.value">
             <NuxtLink
-              to="/admin"
+              to="/admin/rooms"
               class="block w-full text-center bg-sky-600 text-white px-6 py-2 rounded-full hover:bg-sky-700 transition shadow-md"
               @click="mobileMenuOpen = false"
             >

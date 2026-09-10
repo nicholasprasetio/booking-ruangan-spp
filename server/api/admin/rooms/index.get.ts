@@ -57,7 +57,7 @@ export default defineEventHandler(async (event) => {
     }>()
 
   const roomIds = rooms.results.map((room) => room.id)
-  const photosByRoom = new Map<number, Array<{ id: number; url: string; created_at: string | null }>>()
+  const photosByRoom = new Map<number, Array<{ id: number; url: string; thumbnailUrl: string; created_at: string | null }>>()
   if (roomIds.length > 0) {
     const placeholders = roomIds.map(() => '?').join(', ')
     const photos = await env.DB.prepare(
@@ -80,6 +80,7 @@ export default defineEventHandler(async (event) => {
       list.push({
         id: photo.id,
         url: `/api/rooms/photos/${photo.id}`,
+        thumbnailUrl: `/api/rooms/photos/${photo.id}/thumbnail`,
         created_at: photo.created_at,
       })
       photosByRoom.set(photo.room_id, list)

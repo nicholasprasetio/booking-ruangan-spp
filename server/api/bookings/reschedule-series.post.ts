@@ -186,7 +186,7 @@ export default defineEventHandler(async (event) => {
     const seriesRes = await env.DB
       .prepare(
         `INSERT INTO booking_series
-           (user_id, room_id, frequency, interval, start_date, until_date, slots_json, rule_json, created_at, updated_at)
+           (user_id, room_id, frequency, \`interval\`, start_date, until_date, slots_json, rule_json, created_at, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9)`,
       )
       .bind(
@@ -218,7 +218,7 @@ export default defineEventHandler(async (event) => {
       .prepare(
         `UPDATE booking_series
          SET frequency = ?2,
-             interval = ?3,
+             \`interval\` = ?3,
              start_date = ?4,
              until_date = ?5,
              slots_json = ?6,

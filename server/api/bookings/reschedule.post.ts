@@ -128,10 +128,58 @@ export default defineEventHandler(async (event) => {
     .bind(target.id)
     .all<{ start_at: string; end_at: string }>()
 
-  const stepMs = slotMinutes * 60 * 1000
   const sortedStarts = [...slotStartIsos].sort((a, b) => a.localeCompare(b))
+
   const nextStart = sortedStarts[0]
-  const nextEnd = toIsoNoMs(new Date(new Date(sortedStarts[sortedStarts.length - 1]!).getTime() + stepMs))
+
+  const lastStart = sortedStarts[sortedStarts.length - 1]!
+
+
+
+  function addMinutesToWibDatetime(value: string, minutes: number): string {
+
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/)
+
+    if (!match) throw new Error(`Invalid WIB datetime: ${value}`)
+
+
+
+    const [, y, mo, d, h, mi, se] = match
+
+    const base = Date.UTC(
+
+      Number(y),
+
+      Number(mo) - 1,
+
+      Number(d),
+
+      Number(h),
+
+      Number(mi),
+
+      Number(se),
+
+    )
+
+
+
+    const next = new Date(base + minutes * 60 * 1000)
+
+    const pad = (n: number) => String(n).padStart(2, '0')
+
+
+
+    return `${next.getUTCFullYear()}-${pad(next.getUTCMonth() + 1)}-${pad(next.getUTCDate())} ${pad(next.getUTCHours())}:${pad(next.getUTCMinutes())}:${pad(next.getUTCSeconds())}`
+
+  }
+
+
+
+  const nextEnd = addMinutesToWibDatetime(lastStart, slotMinutes)
+
+
+
   if (nextEnd < at) {
     throw createError({ statusCode: 409, statusMessage: 'Jadwal baru sudah lewat' })
   }
@@ -155,15 +203,27 @@ export default defineEventHandler(async (event) => {
   )
 
   for (const slotStartIso of sortedStarts) {
-    const slotStart = new Date(slotStartIso)
-    const slotEnd = toIsoNoMs(new Date(slotStart.getTime() + stepMs))
+
+    const slotEnd = addMinutesToWibDatetime(slotStartIso, slotMinutes)
+
+
+
     statements.push(
+
       env.DB.prepare(
+
         `INSERT INTO booking_occurrence_slots (occurrence_id, start_at, end_at)
+
          VALUES (?1, ?2, ?3)`,
-      ).bind(target.id, toIsoNoMs(slotStart), slotEnd),
+
+      ).bind(target.id, slotStartIso, slotEnd),
+
     )
+
   }
+
+
+
 
   if (body?.activityName !== undefined || body?.participantCount !== undefined || body?.notes !== undefined) {
     const participantCount =

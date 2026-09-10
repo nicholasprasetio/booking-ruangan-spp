@@ -190,6 +190,7 @@ function getRoomColor(roomId: number) {
 }
 
 const calendarOptions = computed<CalendarOptions>(() => ({
+  timeZone: 'Asia/Jakarta',
   plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
   initialView: 'dayGridMonth',
   headerToolbar: {
@@ -285,7 +286,9 @@ async function fetchEvents() {
           user_name: ev.user_name,
           activity_name: ev.activity_name,
           participant_count: ev.participant_count,
-        },
+                  start_at: ev.start,
+          end_at: ev.end,
+},
       }
     })
   } catch (e: any) {
@@ -299,24 +302,60 @@ function refetchEvents() {
   fetchEvents()
 }
 
+function formatWibDateTime(value: string): string {
+
+  const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/)
+
+  if (!match) return String(value || '-')
+
+
+
+  const [, y, mo, d, h, mi] = match
+
+  return `${d} ${mo}-${y} ${h}:${mi}`
+
+}
+
+
+
 function formatEventTime(event: any) {
-  const start = event.start ? new Date(event.start) : null
-  const end = event.end ? new Date(event.end) : null
+
+  const start = event?.extendedProps?.start_at
+
+  const end = event?.extendedProps?.end_at
+
+
+
   if (!start) return '-'
-  const options: Intl.DateTimeFormatOptions = {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }
-  const startStr = start.toLocaleString(localeTag.value, options)
+
+
+
+  const startStr = formatWibDateTime(start)
+
   if (!end) return startStr
-  // Same day?
-  if (start.toDateString() === end.toDateString()) {
-    return `${startStr} - ${end.toLocaleTimeString(localeTag.value, { hour: '2-digit', minute: '2-digit' })}`
+
+
+
+  const startDate = String(start).slice(0, 10)
+
+  const endDate = String(end).slice(0, 10)
+
+
+
+  if (startDate === endDate) {
+
+    const endMatch = String(end).match(/[ T](\d{2}):(\d{2})/)
+
+    const endTime = endMatch ? `${endMatch[1]}:${endMatch[2]}` : String(end)
+
+    return `${startStr} - ${endTime}`
+
   }
-  return `${startStr} - ${end.toLocaleString(localeTag.value, options)}`
+
+
+
+  return `${startStr} - ${formatWibDateTime(end)}`
+
 }
 
 watch(selectedRoomId, () => {

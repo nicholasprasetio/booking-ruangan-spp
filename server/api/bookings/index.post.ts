@@ -82,60 +82,175 @@ async function ensureNoSlotOverlap(db: D1Database, roomId: number, slotStartIsos
 }
 
 async function insertOccurrenceWithSlots(
+
   db: D1Database,
+
   params: {
+
     bookingId: number
+
     occurrenceDate: string
+
     status: string
+
     slotStartIsos: string[]
+
     slotMinutes: number
+
     actorUserId: number
+
     at: string
+
   },
+
 ): Promise<number> {
+
   const { bookingId, occurrenceDate, status, slotStartIsos, slotMinutes, actorUserId, at } = params
+
+
+
   const sortedStarts = [...slotStartIsos].sort((a, b) => a.localeCompare(b))
+
   const firstStart = sortedStarts[0]
-  const stepMs = slotMinutes * 60 * 1000
-  const lastEnd = toIsoNoMs(new Date(new Date(sortedStarts[sortedStarts.length - 1]!).getTime() + stepMs))
+
+
+
+  if (!firstStart) {
+
+    throw createError({ statusCode: 400, statusMessage: 'At least one slot is required' })
+
+  }
+
+
+
+  function addMinutesToWibDatetime(value: string, minutes: number): string {
+
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/)
+
+    if (!match) {
+
+      throw createError({ statusCode: 400, statusMessage: 'Invalid slot datetime' })
+
+    }
+
+
+
+    const [, y, mo, d, h, m, sec] = match
+
+    const base = Date.UTC(
+
+      Number(y),
+
+      Number(mo) - 1,
+
+      Number(d),
+
+      Number(h),
+
+      Number(m),
+
+      Number(sec),
+
+    )
+
+
+
+    const result = new Date(base + minutes * 60 * 1000)
+
+
+
+    const pad = (n: number) => String(n).padStart(2, '0')
+
+
+
+    return `${result.getUTCFullYear()}-${pad(result.getUTCMonth() + 1)}-${pad(result.getUTCDate())} ${pad(result.getUTCHours())}:${pad(result.getUTCMinutes())}:${pad(result.getUTCSeconds())}`
+
+  }
+
+
+
+  const lastStart = sortedStarts[sortedStarts.length - 1]!
+
+  const lastEnd = addMinutesToWibDatetime(lastStart, slotMinutes)
+
+
 
   const occurrenceRes = await db
+
     .prepare(
+
       `INSERT INTO booking_occurrences
+
          (booking_id, occurrence_date, status, start_at, end_at, created_at, updated_at)
+
        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)`,
+
     )
+
     .bind(bookingId, occurrenceDate, status, firstStart, lastEnd, at)
+
     .run()
+
+
 
   const occurrenceId = Number(occurrenceRes.meta.last_row_id)
 
+
+
   const slotStatements = [] as ReturnType<D1Database['prepare']>[]
-  for (const slotStartIso of sortedStarts) {
-    const slotStart = new Date(slotStartIso)
-    const slotEnd = toIsoNoMs(new Date(slotStart.getTime() + stepMs))
+
+
+
+  for (const slotStart of sortedStarts) {
+
+    const slotEnd = addMinutesToWibDatetime(slotStart, slotMinutes)
+
+
+
     slotStatements.push(
+
       db.prepare(
+
         `INSERT INTO booking_occurrence_slots (occurrence_id, start_at, end_at)
+
          VALUES (?1, ?2, ?3)`,
-      ).bind(occurrenceId, toIsoNoMs(slotStart), slotEnd),
+
+      ).bind(occurrenceId, slotStart, slotEnd),
+
     )
+
   }
+
+
 
   if (slotStatements.length) {
+
     await db.batch(slotStatements)
+
   }
 
+
+
   await db
+
     .prepare(
+
       `INSERT INTO booking_events (booking_id, occurrence_id, actor_user_id, type, payload, created_at)
+
        VALUES (?1, ?2, ?3, 'created', ?4, ?5)`,
+
     )
+
     .bind(bookingId, occurrenceId, actorUserId, JSON.stringify({ occurrenceDate }), at)
+
     .run()
 
+
+
   return occurrenceId
+
 }
+
 
 export default defineEventHandler(async (event) => {
   const auth = await requireAuth(event)
@@ -332,7 +447,7 @@ export default defineEventHandler(async (event) => {
     const seriesRes = await env.DB
       .prepare(
         `INSERT INTO booking_series
-           (user_id, room_id, frequency, interval, start_date, until_date, slots_json, rule_json, created_at, updated_at)
+           (user_id, room_id, frequency, \`interval\`, start_date, until_date, slots_json, rule_json, created_at, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9)`,
       )
       .bind(

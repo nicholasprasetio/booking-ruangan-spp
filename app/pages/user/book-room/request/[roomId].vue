@@ -509,10 +509,16 @@ function toTimeLabel(min: number): string {
   return h === '24' ? '00:' + m : `${h}:${m}`
 }
 
-function utcMinutes(iso: string): number {
-  const d = new Date(iso)
-  return d.getHours() * 60 + d.getMinutes()
+function utcMinutes(value: string): number {
+
+  const match = String(value || '').match(/[ T](\d{2}):(\d{2})/)
+
+  if (!match) return -1
+
+  return Number(match[1]) * 60 + Number(match[2])
+
 }
+
 
 const slots = computed(() => {
   const items: Array<{ label: string; startMin: number; endMin: number; available: boolean }> = []
@@ -702,7 +708,7 @@ async function loadSchedule() {
     slotMinutes.value = room.slot_minutes || 60
     bookings.value = room.bookings || []
 
-    ensureSelection({ autoPickFirst: !isReschedule.value })
+    ensureSelection({ autoPickFirst: false })
   } catch (e: any) {
     error.value = e?.data?.statusMessage || e?.message || tr('Gagal memuat jadwal ruangan.', 'Failed to load room schedule.')
   } finally {
@@ -882,8 +888,11 @@ async function prefillReschedule() {
   setFieldValue('notes', b.notes || '')
 
   selectedSlots.value = targetOccurrence.slots.map((s) => {
-    const d = new Date(s.start_at)
-    return d.getHours() * 60 + d.getMinutes()
+
+    const match = String(s.start_at).match(/[ T](\d{2}):(\d{2})/)
+
+    return match ? Number(match[1]) * 60 + Number(match[2]) : 0
+
   })
   updateSelectionFields()
   setFieldValue('recurrenceEnabled', false)
@@ -965,8 +974,11 @@ async function prefillRescheduleSeries() {
 
   if (baseOccurrence?.slots?.length) {
     selectedSlots.value = baseOccurrence.slots.map((s) => {
-      const d = new Date(s.start_at)
-      return d.getHours() * 60 + d.getMinutes()
+
+      const match = String(s.start_at).match(/[ T](\d{2}):(\d{2})/)
+
+      return match ? Number(match[1]) * 60 + Number(match[2]) : 0
+
     })
     updateSelectionFields()
   }

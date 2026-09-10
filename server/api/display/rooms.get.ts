@@ -16,7 +16,50 @@ export default defineEventHandler(async (event) => {
   const q = getQuery(event)
   const hoursAhead = Math.max(1, Math.min(24, Number(q.hoursAhead || 6) || 6))
   const now = nowIso()
-  const until = new Date(new Date(now).getTime() + hoursAhead * 60 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z')
+
+
+
+  function addMinutesToWibDatetime(value: string, minutes: number): string {
+
+    const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/)
+
+    if (!match) throw new Error(`Invalid WIB datetime: ${value}`)
+
+
+
+    const [, y, mo, d, h, mi, se] = match
+
+    const base = Date.UTC(
+
+      Number(y),
+
+      Number(mo) - 1,
+
+      Number(d),
+
+      Number(h),
+
+      Number(mi),
+
+      Number(se),
+
+    )
+
+    const next = new Date(base + minutes * 60 * 1000)
+
+
+
+    const pad = (n: number) => String(n).padStart(2, '0')
+
+
+
+    return `${next.getUTCFullYear()}-${pad(next.getUTCMonth() + 1)}-${pad(next.getUTCDate())} ${pad(next.getUTCHours())}:${pad(next.getUTCMinutes())}:${pad(next.getUTCSeconds())}`
+
+  }
+
+
+
+  const until = addMinutesToWibDatetime(now, hoursAhead * 60)
 
   const rows = await env.DB.prepare(
     `SELECT

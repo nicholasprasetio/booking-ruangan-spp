@@ -1,6 +1,7 @@
 export interface RoomPhoto {
   id: number
   url: string
+  thumbnailUrl?: string
   created_at: string | null
 }
 

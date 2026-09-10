@@ -108,7 +108,7 @@
               class="bg-white rounded-2xl shadow border border-gray-100 overflow-hidden flex flex-col"
             >
               <div class="aspect-[16/9] bg-gray-100">
-                <img v-if="room.photos?.length" :src="room.photos[0]?.url" :alt="room.name || 'Ruangan'" class="h-full w-full object-cover" />
+                <img v-if="room.photos?.length" :src="room.photos[0]?.thumbnailUrl || room.photos[0]?.url" :alt="room.name || 'Ruangan'" class="h-full w-full object-cover" />
                 <div v-else class="h-full w-full flex items-center justify-center text-gray-400">
                   <Icon name="mdi:door-open" size="42" />
                 </div>

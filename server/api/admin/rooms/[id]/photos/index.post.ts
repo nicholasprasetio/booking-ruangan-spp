@@ -1,110 +1,281 @@
+
 import { promises as fs } from 'node:fs'
+
 import path from 'node:path'
+
+import sharp from 'sharp'
+
 import { getCloudflareEnv } from '../../../../../utils/cf-env'
+
 import { requireAuth } from '../../../../../utils/auth'
+
 import { requireRole } from '../../../../../utils/roles'
 
+
+
 const MAX_PHOTO_BYTES = 6 * 1024 * 1024
+
 const PHOTO_DIR = '/home/jelastic/ROOT/uploads/room-photos'
 
+const THUMB_DIR = '/home/jelastic/ROOT/uploads/room-photos/thumbs'
+
+
+
 function extensionForType(type: string | undefined) {
+
   if (type === 'image/jpeg') return 'jpg'
+
   if (type === 'image/png') return 'png'
+
   if (type === 'image/webp') return 'webp'
+
   if (type === 'image/gif') return 'gif'
+
   return 'bin'
+
 }
 
+
+
 export default defineEventHandler(async (event) => {
+
   const auth = await requireAuth(event)
+
   requireRole(event, auth, ['admin'])
+
+
 
   const env = getCloudflareEnv(event)
 
+
+
   const id = getRouterParam(event, 'id')
+
   if (!id || isNaN(Number(id))) {
+
     throw createError({ statusCode: 400, statusMessage: 'Invalid room ID' })
+
   }
+
+
 
   const existing = await env.DB.prepare(
+
     `SELECT id FROM rooms WHERE id = ? AND deleted_at IS NULL`,
+
   )
+
     .bind(id)
+
     .first()
 
+
+
   if (!existing) {
+
     throw createError({ statusCode: 404, statusMessage: 'Room not found' })
+
   }
 
+
+
   const parts = await readMultipartFormData(event)
+
   if (!parts || parts.length === 0) {
+
     throw createError({ statusCode: 400, statusMessage: 'No files uploaded' })
+
   }
+
+
 
   await fs.mkdir(PHOTO_DIR, { recursive: true })
 
-  const now = new Date().toISOString().slice(0, 19).replace('T', ' ').slice(0, 19).replace('T', ' ').slice(0, 19).replace('T', ' ')
-  const savedPhotos: Array<{ id: number; url: string; created_at: string }> = []
+  await fs.mkdir(THUMB_DIR, { recursive: true })
+
+
+
+  const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
+
+  const savedPhotos: Array<{
+
+    id: number
+
+    url: string
+
+    thumbnailUrl: string
+
+    created_at: string
+
+  }> = []
+
+
 
   for (const part of parts) {
+
     if (part.name !== 'files' || !part.data) continue
 
+
+
     if (part.data.length > MAX_PHOTO_BYTES) {
+
       throw createError({
+
         statusCode: 400,
+
         statusMessage: 'File too large (max 6MB)',
+
       })
+
     }
+
+
 
     if (!part.type || !part.type.startsWith('image/')) {
+
       throw createError({
+
         statusCode: 400,
+
         statusMessage: 'Only image files are allowed',
+
       })
+
     }
+
+
 
     const ext = extensionForType(part.type)
+
     const filename = `${crypto.randomUUID()}.${ext}`
+
     const relativePath = `room-photos/${filename}`
+
     const absolutePath = path.join(PHOTO_DIR, filename)
 
+
+
+    // Semua thumbnail dibuat JPEG kecil agar listing ringan.
+
+    const thumbFilename = `${filename}.jpg`
+
+    const thumbAbsolutePath = path.join(THUMB_DIR, thumbFilename)
+
+
+
     try {
+
       await fs.writeFile(absolutePath, part.data)
 
+
+
+      await sharp(part.data)
+
+        .rotate()
+
+        .resize({
+
+          width: 240,
+
+          height: 240,
+
+          fit: 'inside',
+
+          withoutEnlargement: true,
+
+        })
+
+        .jpeg({
+
+          quality: 70,
+
+          mozjpeg: true,
+
+        })
+
+        .toFile(thumbAbsolutePath)
+
+
+
       const result = await env.DB.prepare(
+
         `INSERT INTO room_photos
+
          (room_id, object_key, content_type, byte_size, created_at)
+
          VALUES (?, ?, ?, ?, ?)`,
+
       )
+
         .bind(
+
           id,
+
           relativePath,
+
           part.type,
+
           part.data.length,
+
           now,
+
         )
+
         .run()
 
+
+
+      const photoId = result.meta.last_row_id
+
+
+
       savedPhotos.push({
-        id: result.meta.last_row_id,
-        url: `/api/rooms/photos/${result.meta.last_row_id}`,
+
+        id: photoId,
+
+        url: `/api/rooms/photos/${photoId}`,
+
+        thumbnailUrl: `/api/rooms/photos/${photoId}/thumbnail`,
+
         created_at: now,
+
       })
+
     } catch (error) {
+
       await fs.rm(absolutePath, { force: true }).catch(() => undefined)
+
+      await fs.rm(thumbAbsolutePath, { force: true }).catch(() => undefined)
+
       throw error
+
     }
+
   }
+
+
 
   if (savedPhotos.length === 0) {
+
     throw createError({
+
       statusCode: 400,
+
       statusMessage: 'No valid image files uploaded',
+
     })
+
   }
 
+
+
   return {
+
     ok: true,
+
     photos: savedPhotos,
+
   }
+
 })
+

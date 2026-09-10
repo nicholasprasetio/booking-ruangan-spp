@@ -178,7 +178,7 @@ export default defineEventHandler(async (event) => {
       const aFuture = a.start_at >= now ? 0 : 1
       const bFuture = b.start_at >= now ? 0 : 1
       if (aFuture !== bFuture) return aFuture - bFuture
-      return a.start_at.localeCompare(b.start_at)
+      return String(a.start_at).localeCompare(String(b.start_at))
     })[0] || null
 
   return {
