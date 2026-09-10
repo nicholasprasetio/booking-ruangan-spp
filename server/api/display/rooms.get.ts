@@ -62,32 +62,31 @@ export default defineEventHandler(async (event) => {
   const until = addMinutesToWibDatetime(now, hoursAhead * 60)
 
   const rows = await env.DB.prepare(
-    `SELECT
-        bo.id AS occurrence_id,
-        bos.start_at,
-        bos.end_at,
-        b.id AS booking_id,
-        b.activity_name,
-        b.participant_count,
-        COALESCE(b.external_requester_name, u.fullname) AS requester_name,
-        COALESCE(oroom.id, r.id) AS room_id,
-        COALESCE(oroom.name, r.name) AS room_name,
-        COALESCE(oroom.location, r.location) AS room_location
-     FROM booking_occurrence_slots bos
-     JOIN booking_occurrences bo ON bo.id = bos.occurrence_id
-     JOIN bookings b ON b.id = bo.booking_id
-     JOIN rooms r ON r.id = b.room_id
-     LEFT JOIN rooms oroom ON oroom.id = bo.room_id
-     JOIN users u ON u.id = b.user_id
-     WHERE b.deleted_at IS NULL
-       AND bo.status = 'approved'
-       AND bos.end_at > ?1
-       AND bos.start_at <= ?2
-     ORDER BY bos.start_at ASC, r.name ASC
-     LIMIT 100`,
-  )
-    .bind(now, until)
-    .all<any>()
+  `SELECT
+      bo.id AS occurrence_id,
+      bo.start_at,
+      bo.end_at,
+      b.id AS booking_id,
+      b.activity_name,
+      b.participant_count,
+      COALESCE(b.external_requester_name, u.fullname) AS requester_name,
+      COALESCE(oroom.id, r.id) AS room_id,
+      COALESCE(oroom.name, r.name) AS room_name,
+      COALESCE(oroom.location, r.location) AS room_location
+   FROM booking_occurrences bo
+   JOIN bookings b ON b.id = bo.booking_id
+   JOIN rooms r ON r.id = b.room_id
+   LEFT JOIN rooms oroom ON oroom.id = bo.room_id
+   JOIN users u ON u.id = b.user_id
+   WHERE b.deleted_at IS NULL
+     AND bo.status = 'approved'
+     AND bo.end_at > ?1
+     AND bo.start_at <= ?2
+   ORDER BY bo.start_at ASC, r.name ASC
+   LIMIT 100`,
+)
+  .bind(now, until)
+  .all<any>()
 
   return {
     ok: true,
@@ -100,3 +99,4 @@ export default defineEventHandler(async (event) => {
     })),
   }
 })
+
