@@ -16,7 +16,7 @@
           </button>
         </div>
 
-        <div class="flex flex-wrap items-center gap-3">
+        <div class="flex flex-wrap items-center gap-3 min-w-0">
           <button class="px-4 py-2 rounded-full text-sm font-semibold border transition" :class="tabClass('all-documents')" @click="setTab('all-documents')">
             {{ tr('Semua Dokumen', 'All Documents') }}
           </button>
@@ -134,8 +134,8 @@
 
           <!-- Report Table -->
           <div v-if="!reportLoading && reportData.length" class="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm">
+            <div class="mobile-table-scroll">
+              <table class="w-full min-w-[900px] text-sm">
                 <thead>
                   <tr class="bg-gray-50 border-b border-gray-200">
                     <th class="px-4 py-3 text-left font-semibold text-gray-700">#</th>

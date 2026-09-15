@@ -41,7 +41,8 @@
           </div>
         </div>
 
-        <div class="flex items-center gap-3 mb-6">
+        <div class="overflow-x-auto pb-1 mb-6">
+          <div class="flex min-w-max items-center gap-3">
           <button
             class="px-4 py-2 rounded-full text-sm font-semibold border transition"
             :class="tabClass('pending')"
@@ -64,6 +65,7 @@
             <Icon name="mdi:chart-bar" class="mr-1" />
             {{ tr('Laporan', 'Report') }}
           </button>
+          </div>
         </div>
 
         <div v-if="currentTab === 'report'">
@@ -152,8 +154,8 @@
           </div>
 
           <div v-if="!reportLoading && reportData.length" class="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm">
+            <div class="mobile-table-scroll">
+              <table class="w-full min-w-[980px] text-sm">
                 <thead>
                   <tr class="bg-gray-50 border-b border-gray-200">
                     <th class="px-4 py-3 text-left font-semibold text-gray-700">#</th>
@@ -225,7 +227,7 @@
                   @change="toggleSelected(b)"
                 />
                 <div class="flex-1 space-y-4">
-                  <div class="flex align-middle justify-between">
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div class="flex flex-wrap items-center gap-3">
                       <div class="text-xl font-bold text-gray-900">
                         {{ b.room_name || `Room #${b.room_id}` }}

@@ -37,6 +37,9 @@
             <Icon name="mdi:plus" size="18" />
             {{ tr('Tambah Ruangan', 'Add Room') }}
           </button>
+          <button class="px-4 py-2 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 transition shadow-sm inline-flex items-center gap-1.5" @click="openCombinedModal()">
+            <Icon name="mdi:merge" size="18" />{{ tr('Buat Ruangan Gabungan', 'Create Combined Room') }}
+          </button>
 
           <button
             v-if="selectedRoomIds.size > 0"
@@ -89,8 +92,8 @@
             {{ tr('Belum ada ruangan. Klik tombol "Tambah Ruangan" untuk menambahkan.', 'No rooms yet. Click "Add Room" to create one.') }}
           </div>
 
-          <div v-else class="overflow-x-auto">
-            <table class="w-full text-sm">
+          <div v-else class="mobile-table-scroll">
+            <table class="w-full min-w-[1040px] text-sm">
               <thead>
                 <tr class="bg-gray-50 border-b border-gray-200">
                   <th class="px-4 py-3 text-left">
@@ -129,6 +132,7 @@
                   </td>
                   <td class="px-4 py-3">
                     <div class="font-semibold text-gray-900">{{ room.name || '-' }}</div>
+                    <div v-if="room.is_combined" class="text-xs text-violet-700 mt-0.5 font-semibold">{{ tr('Ruangan gabungan', 'Combined room') }}<span v-if="room.members?.length"> · {{ room.members.map(member => member.name).join(' + ') }}</span></div>
                     <div v-if="room.description" class="text-xs text-gray-500 mt-0.5 truncate max-w-[200px]">{{ room.description }}</div>
                   </td>
                   <td class="px-4 py-3 text-gray-700">{{ room.location || '-' }}</td>
@@ -283,6 +287,21 @@
       </div>
     </Teleport>
 
+    <Teleport to="body">
+      <div v-if="showCombinedModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="closeCombinedModal">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6">
+          <h2 class="text-2xl font-bold text-gray-900 mb-4">{{ editingCombinedRoom ? tr('Edit Ruangan Gabungan', 'Edit Combined Room') : tr('Buat Ruangan Gabungan', 'Create Combined Room') }}</h2>
+          <form @submit.prevent="saveCombinedRoom" class="space-y-4">
+            <UiInput v-model="combinedName" :label="tr('Nama Ruangan Gabungan', 'Combined Room Name')" required />
+            <div><label class="block text-sm font-semibold text-gray-700 mb-2">{{ tr('Pilih ruangan satuan (minimal 2)', 'Select member rooms (minimum 2)') }}</label><div class="max-h-56 overflow-y-auto rounded-xl border border-gray-200 p-2 space-y-1"><label v-for="room in selectableMemberRooms" :key="room.id" class="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50"><input v-model="combinedMemberIds" type="checkbox" :value="room.id" class="rounded border-gray-300 text-violet-600" /><span class="text-sm text-gray-800">{{ room.name }} <span class="text-gray-400">({{ room.capacity || '-' }})</span></span></label></div><p class="mt-2 text-xs text-gray-500">{{ tr('Kapasitas, lokasi, jam operasional, dan interval slot dihitung dari ruangan satuan.', 'Capacity, location, operating hours, and slot interval are calculated from member rooms.') }}</p></div>
+            <label class="flex items-center gap-2 text-sm text-gray-700"><input v-model="combinedAvailable" type="checkbox" class="rounded border-gray-300 text-violet-600" /> {{ tr('Tersedia untuk booking', 'Available for booking') }}</label>
+            <div v-if="combinedSaveError" class="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ combinedSaveError }}</div>
+            <div class="flex justify-end gap-3"><button type="button" class="px-4 py-2 rounded-xl bg-gray-200 font-semibold" @click="closeCombinedModal">{{ tr('Batal', 'Cancel') }}</button><button type="submit" :disabled="savingCombined" class="px-4 py-2 rounded-xl bg-violet-600 text-white font-semibold">{{ savingCombined ? tr('Menyimpan...', 'Saving...') : tr('Simpan', 'Save') }}</button></div>
+          </form>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- Photo Management Modal -->
     <Teleport to="body">
       <div
@@ -368,8 +387,8 @@
             <button class="text-gray-400 hover:text-gray-600" @click="closeImportPreview"><Icon name="mdi:close" size="24" /></button>
           </div>
 
-          <div class="flex-1 overflow-auto px-6 py-4">
-            <table class="w-full text-sm border-collapse">
+          <div class="flex-1 overflow-auto px-4 sm:px-6 py-4">
+            <table class="min-w-[760px] w-full text-sm border-collapse">
               <thead>
                 <tr class="bg-gray-50">
                   <th class="px-3 py-2 text-left font-semibold text-gray-600 border-b">{{ tr('Baris', 'Row') }}</th>
@@ -441,6 +460,8 @@ import {
   updateAdminRoom,
   bulkDeleteAdminRooms,
   bulkUpsertAdminRooms,
+  createCombinedAdminRoom,
+  updateCombinedAdminRoom,
 } from '~/services/adminRooms'
 import { createRoomUpsertSchema } from '~/validators/room'
 import { exportRoomsToExcel, generateRoomTemplate, parseRoomExcel, type ParsedRoom } from '~/utils/excel-rooms'
@@ -479,6 +500,14 @@ const showImportPreview = ref(false)
 const importPreviewData = ref<ParsedRoom[]>([])
 const importFileInput = ref<HTMLInputElement | null>(null)
 const roomUpsertSchema = computed(() => createRoomUpsertSchema(tr))
+const showCombinedModal = ref(false)
+const editingCombinedRoom = ref<Room | null>(null)
+const combinedName = ref('')
+const combinedMemberIds = ref<number[]>([])
+const combinedAvailable = ref(true)
+const savingCombined = ref(false)
+const combinedSaveError = ref<string | null>(null)
+const selectableMemberRooms = computed(() => rooms.value.filter((room) => !room.is_combined && room.id !== editingCombinedRoom.value?.id))
 
 // ── Selection ──
 const isAllSelected = computed(() => rooms.value.length > 0 && rooms.value.every(r => selectedRoomIds.value.has(r.id)))
@@ -582,10 +611,49 @@ function openCreateModal() {
 }
 
 function openEditModal(room: Room) {
+  if (room.is_combined) {
+    openCombinedModal(room)
+    return
+  }
   editingRoom.value = room
   saveError.value = null
   resetForm({ values: valuesFromRoom(room) })
   showModal.value = true
+}
+
+function openCombinedModal(room: Room | null = null) {
+  editingCombinedRoom.value = room
+  combinedName.value = room?.name || ''
+  combinedMemberIds.value = room?.members?.map((member) => member.id) || []
+  combinedAvailable.value = room?.available_for_booking !== false && room?.available_for_booking !== 0
+  combinedSaveError.value = null
+  showCombinedModal.value = true
+}
+
+function closeCombinedModal() {
+  showCombinedModal.value = false
+  editingCombinedRoom.value = null
+  combinedSaveError.value = null
+}
+
+async function saveCombinedRoom() {
+  if (!combinedName.value.trim() || combinedMemberIds.value.length < 2) {
+    combinedSaveError.value = tr('Nama dan minimal dua ruangan satuan wajib diisi.', 'Name and at least two member rooms are required.')
+    return
+  }
+  savingCombined.value = true
+  combinedSaveError.value = null
+  try {
+    const payload = { name: combinedName.value.trim(), memberRoomIds: combinedMemberIds.value, available_for_booking: combinedAvailable.value }
+    if (editingCombinedRoom.value) await updateCombinedAdminRoom(editingCombinedRoom.value.id, payload, auth.authHeaders())
+    else await createCombinedAdminRoom(payload, auth.authHeaders())
+    closeCombinedModal()
+    await refresh()
+  } catch (e: any) {
+    combinedSaveError.value = e?.data?.statusMessage || e?.statusMessage || tr('Gagal menyimpan ruangan gabungan.', 'Failed to save combined room.')
+  } finally {
+    savingCombined.value = false
+  }
 }
 
 function closeModal() {

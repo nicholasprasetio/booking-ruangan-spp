@@ -8,6 +8,7 @@ import { generateRecurrenceDates, parseRecurrenceRule, type RecurrenceRule } fro
 import { ensureBookingKeyTokensForBooking, nowIso, recalculateBookingSummary } from '../../utils/booking-v2'
 import { ensureBookingLeadTime } from '../../utils/settings'
 import { sendEmail } from '../../utils/email'
+import { ensureCombinedRoomAvailable, ensureNoCombinedSlotOverlap, slotRangesFromStarts } from '../../utils/combined-rooms'
 
 type CreateBookingBody = {
   roomId?: number
@@ -54,31 +55,8 @@ function normalizeOptionalText(input: unknown): string | null {
   return trimmed.length ? trimmed : null
 }
 
-async function ensureNoSlotOverlap(db: D1Database, roomId: number, slotStartIsos: string[], message: string): Promise<void> {
-  if (!slotStartIsos.length) return
-
-  for (let i = 0; i < slotStartIsos.length; i += 99) {
-    const chunk = slotStartIsos.slice(i, i + 99)
-    const placeholders = chunk.map((_, idx) => `?${idx + 2}`).join(', ')
-    const overlap = await db
-      .prepare(
-        `SELECT bos.start_at
-         FROM booking_occurrence_slots bos
-         JOIN booking_occurrences bo ON bo.id = bos.occurrence_id
-         JOIN bookings b ON b.id = bo.booking_id
-         WHERE b.room_id = ?1
-           AND b.deleted_at IS NULL
-           AND bo.status IN ('pending','approved')
-           AND bos.start_at IN (${placeholders})
-         LIMIT 1`,
-      )
-      .bind(roomId, ...chunk)
-      .first<{ start_at: string }>()
-
-    if (overlap) {
-      throw createError({ statusCode: 409, statusMessage: message })
-    }
-  }
+async function ensureNoSlotOverlap(db: D1Database, roomId: number, slotStartIsos: string[], slotMinutes: number, message: string): Promise<void> {
+  await ensureNoCombinedSlotOverlap(db, roomId, slotRangesFromStarts(slotStartIsos, slotMinutes), message)
 }
 
 async function insertOccurrenceWithSlots(
@@ -293,6 +271,7 @@ export default defineEventHandler(async (event) => {
   if (!room) {
     throw createError({ statusCode: 404, statusMessage: 'Room not found or not available for booking' })
   }
+  await ensureCombinedRoomAvailable(env.DB, roomId)
 
   const openStart = room.open_time_start || '00:00'
   const openEnd = room.open_time_end || '24:00'
@@ -373,7 +352,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // Check overlap with pending/approved booking slots (single query)
-    await ensureNoSlotOverlap(env.DB, roomId, allSlotStartIsos, 'Room is not available in the selected recurring slots')
+    await ensureNoSlotOverlap(env.DB, roomId, allSlotStartIsos, slotMinutes, 'Room is not available in the selected recurring slots')
   } else {
     await ensureBookingLeadTime(env.DB, auth, [date])
 
@@ -386,7 +365,7 @@ export default defineEventHandler(async (event) => {
       slotMinutes,
     })
 
-    await ensureNoSlotOverlap(env.DB, roomId, singleOccurrenceSlots, 'Room is not available in the selected slots')
+    await ensureNoSlotOverlap(env.DB, roomId, singleOccurrenceSlots, slotMinutes, 'Room is not available in the selected slots')
   }
 
   // If current user role is admin, allow direct approval

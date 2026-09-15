@@ -1,6 +1,7 @@
 import { getCloudflareEnv } from '../../../utils/cf-env'
 import { requireAuth } from '../../../utils/auth'
 import { requireRole } from '../../../utils/roles'
+import { deriveCombinedMetadata, getCombinedMembers, refreshCombinedMetadataForMembers } from '../../../utils/combined-rooms'
 
 export default defineEventHandler(async (event) => {
   const auth = await requireAuth(event)
@@ -46,13 +47,29 @@ export default defineEventHandler(async (event) => {
 
   // Check if room exists
   const existing = await env.DB.prepare(
-    `SELECT id FROM rooms WHERE id = ? AND deleted_at IS NULL`,
+    `SELECT id, COALESCE(is_combined, 0) AS is_combined FROM rooms WHERE id = ? AND deleted_at IS NULL`,
   )
     .bind(id)
     .first()
 
   if (!existing) {
     throw createError({ statusCode: 404, statusMessage: 'Room not found' })
+  }
+  if (Number((existing as any).is_combined)) {
+    throw createError({ statusCode: 400, statusMessage: 'Gunakan pengelolaan ruangan gabungan untuk mengubah ruangan ini' })
+  }
+  const parentGroups = await env.DB.prepare(
+    'SELECT combined_room_id FROM room_combined_members WHERE member_room_id = ?1',
+  ).bind(id).all<{ combined_room_id: number }>()
+  if (available_for_booking === 0 && (parentGroups.results || []).length) {
+    throw createError({ statusCode: 409, statusMessage: 'Ruangan satuan yang dipakai gabungan tidak dapat dinonaktifkan' })
+  }
+  for (const parent of parentGroups.results || []) {
+    const members = await getCombinedMembers(env.DB, Number(parent.combined_room_id))
+    const nextMembers = members.map((member) => Number(member.id) === Number(id)
+      ? { ...member, open_time_start: open_time_start || null, open_time_end: open_time_end || null, slot_minutes: slot_minutes !== undefined && slot_minutes !== null ? Number(slot_minutes) : null }
+      : member)
+    deriveCombinedMetadata(nextMembers)
   }
 
   const now = new Date().toISOString().slice(0, 19).replace('T', ' ').slice(0, 19).replace('T', ' ')
@@ -74,6 +91,8 @@ export default defineEventHandler(async (event) => {
       id
     )
     .run()
+
+  if ((parentGroups.results || []).length) await refreshCombinedMetadataForMembers(env.DB, Number(id))
 
   return {
     ok: true,

@@ -112,30 +112,33 @@ export default defineEventHandler(async (event) => {
   })
 
   const roomIds = candidateRooms.map((room) => Number(room.id))
+  const relatedByRoom = new Map<number, Set<number>>()
+  for (const id of roomIds) relatedByRoom.set(id, new Set([id]))
+  if (roomIds.length) {
+    const placeholders = roomIds.map(() => '?').join(', ')
+    const relations = await env.DB.prepare(
+      `SELECT combined_room_id, member_room_id FROM room_combined_members
+       WHERE combined_room_id IN (${placeholders}) OR member_room_id IN (${placeholders})`,
+    ).bind(...roomIds, ...roomIds).all<{ combined_room_id: number; member_room_id: number }>()
+    for (const relation of relations.results || []) {
+      relatedByRoom.get(Number(relation.combined_room_id))?.add(Number(relation.member_room_id))
+      relatedByRoom.get(Number(relation.member_room_id))?.add(Number(relation.combined_room_id))
+    }
+  }
   const conflictsByRoom = new Map<number, Array<{ start_at: string; end_at: string }>>()
   if (roomIds.length) {
-    for (let i = 0; i < roomIds.length; i += 98) {
-      const chunk = roomIds.slice(i, i + 98)
-      const placeholders = chunk.map((_, idx) => `?${idx + 3}`).join(', ')
-      const conflicts = await env.DB
-        .prepare(
-          `SELECT b.room_id, bos.start_at, bos.end_at
-           FROM booking_occurrence_slots bos
-           JOIN booking_occurrences bo ON bo.id = bos.occurrence_id
-           JOIN bookings b ON b.id = bo.booking_id
-           WHERE b.deleted_at IS NULL
-             AND bo.status IN ('pending','approved')
-             AND bos.start_at < ?2
-             AND bos.end_at > ?1
-             AND b.room_id IN (${placeholders})`,
-        )
-        .bind(startIso, endIso, ...chunk)
-        .all<{ room_id: number; start_at: string; end_at: string }>()
-
-      for (const row of conflicts.results || []) {
-        const roomConflicts = conflictsByRoom.get(Number(row.room_id)) || []
+    const conflicts = await env.DB.prepare(
+      `SELECT COALESCE(bo.room_id, b.room_id) AS room_id, bos.start_at, bos.end_at
+       FROM booking_occurrence_slots bos JOIN booking_occurrences bo ON bo.id = bos.occurrence_id
+       JOIN bookings b ON b.id = bo.booking_id
+       WHERE b.deleted_at IS NULL AND bo.status IN ('pending','approved') AND bos.start_at < ?2 AND bos.end_at > ?1`,
+    ).bind(startIso, endIso).all<{ room_id: number; start_at: string; end_at: string }>()
+    for (const row of conflicts.results || []) {
+      for (const [targetId, related] of relatedByRoom) {
+        if (!related.has(Number(row.room_id))) continue
+        const roomConflicts = conflictsByRoom.get(targetId) || []
         roomConflicts.push({ start_at: row.start_at, end_at: row.end_at })
-        conflictsByRoom.set(Number(row.room_id), roomConflicts)
+        conflictsByRoom.set(targetId, roomConflicts)
       }
     }
   }

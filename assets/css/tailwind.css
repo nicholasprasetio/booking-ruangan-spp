@@ -7,3 +7,15 @@
     @apply bg-gray-50 text-gray-900;
   }
 }
+
+@layer components {
+  /* Keeps dense data tables usable on small touch screens without widening the page. */
+  .mobile-table-scroll {
+    @apply w-full overflow-x-auto overscroll-x-contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-table-scroll > table {
+    @apply min-w-[760px];
+  }
+}

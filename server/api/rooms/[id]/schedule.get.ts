@@ -146,8 +146,7 @@ export default defineEventHandler(async (event) => {
           bos.end_at AS slot_end
        FROM rooms r
        LEFT JOIN bookings b
-         ON b.room_id = r.id
-        AND b.deleted_at IS NULL
+         ON b.deleted_at IS NULL
        LEFT JOIN booking_occurrences bo
          ON bo.booking_id = b.id
         AND bo.status IN ('pending','approved')
@@ -161,6 +160,11 @@ export default defineEventHandler(async (event) => {
        WHERE r.deleted_at IS NULL
          AND COALESCE(r.available_for_booking, 1) = 1
          AND r.id = ?3
+         AND (
+           bo.id IS NULL OR COALESCE(bo.room_id, b.room_id) = r.id
+           OR EXISTS (SELECT 1 FROM room_combined_members m WHERE m.combined_room_id = r.id AND m.member_room_id = COALESCE(bo.room_id, b.room_id))
+           OR EXISTS (SELECT 1 FROM room_combined_members m WHERE m.member_room_id = r.id AND m.combined_room_id = COALESCE(bo.room_id, b.room_id))
+         )
        ORDER BY bos.start_at ASC`,
     )
     .bind(dayStart, dayEnd, id, excludeOccurrenceId, excludeBookingId, excludeSeriesId)

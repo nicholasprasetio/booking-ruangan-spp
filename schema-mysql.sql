@@ -279,7 +279,17 @@ CREATE TABLE `rooms` (
   `open_time_end` TEXT,
   `slot_minutes` INT,
   `available_for_booking` INT NOT NULL DEFAULT 1,
+  `is_combined` INT NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `room_combined_members` (
+  `combined_room_id` INT NOT NULL,
+  `member_room_id` INT NOT NULL,
+  `created_at` DATETIME NOT NULL,
+  PRIMARY KEY (`combined_room_id`, `member_room_id`),
+  CONSTRAINT `fk_room_combined_members_combined` FOREIGN KEY (`combined_room_id`) REFERENCES `rooms` (`id`),
+  CONSTRAINT `fk_room_combined_members_member` FOREIGN KEY (`member_room_id`) REFERENCES `rooms` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `user_roles` (

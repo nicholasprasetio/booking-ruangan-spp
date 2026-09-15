@@ -99,6 +99,15 @@ export default defineEventHandler(async (event) => {
 
     }
 
+    const usedByCombined = await env.DB.prepare(
+      `SELECT r.name FROM room_combined_members m JOIN rooms r ON r.id = m.combined_room_id
+       WHERE m.member_room_id = ?1 AND r.deleted_at IS NULL LIMIT 1`,
+    ).bind(id).first<{ name: string | null }>()
+    if (usedByCombined) {
+      failed.push({ id, reason: `Ruangan masih digunakan oleh gabungan ${usedByCombined.name || ''}` })
+      continue
+    }
+
 
 
     // Check active bookings
@@ -111,7 +120,7 @@ export default defineEventHandler(async (event) => {
 
        JOIN bookings b ON b.id = bo.booking_id
 
-       WHERE bo.room_id = ?
+       WHERE COALESCE(bo.room_id, b.room_id) = ?
 
          AND b.deleted_at IS NULL
 

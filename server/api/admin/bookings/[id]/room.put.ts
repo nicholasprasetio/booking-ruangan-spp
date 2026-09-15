@@ -4,6 +4,7 @@ import { requireAuth } from '../../../../utils/auth'
 import { requireRole } from '../../../../utils/roles'
 import { nowIso, recalculateBookingSummary } from '../../../../utils/booking-v2'
 import { sendEmail } from '../../../../utils/email'
+import { ensureCombinedRoomAvailable, ensureNoCombinedSlotOverlap } from '../../../../utils/combined-rooms'
 
 export default defineEventHandler(async (event) => {
   const auth = await requireAuth(event)
@@ -46,6 +47,7 @@ export default defineEventHandler(async (event) => {
     .first<{ id: number; name: string | null }>()
 
   if (!room) throw createError({ statusCode: 404, statusMessage: 'Target room not found or not available for booking' })
+  await ensureCombinedRoomAvailable(env.DB, targetRoomId)
 
   const completed = await env.DB.prepare(
     `SELECT id
@@ -62,7 +64,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const slots = await env.DB.prepare(
-    `SELECT bos.start_at
+    `SELECT bos.start_at, bos.end_at
      FROM booking_occurrence_slots bos
      JOIN booking_occurrences bo ON bo.id = bos.occurrence_id
      WHERE bo.booking_id = ?1
@@ -70,33 +72,10 @@ export default defineEventHandler(async (event) => {
      ORDER BY bos.start_at ASC`,
   )
     .bind(bookingId)
-    .all<{ start_at: string }>()
+    .all<{ start_at: string; end_at: string }>()
 
-  const starts = (slots.results || []).map((row) => row.start_at).filter(Boolean)
-  if (starts.length) {
-    for (let i = 0; i < starts.length; i += 98) {
-      const chunk = starts.slice(i, i + 98)
-      const placeholders = chunk.map((_, idx) => `?${idx + 3}`).join(', ')
-      const overlap = await env.DB.prepare(
-        `SELECT bos.start_at
-         FROM booking_occurrence_slots bos
-         JOIN booking_occurrences bo ON bo.id = bos.occurrence_id
-         JOIN bookings b ON b.id = bo.booking_id
-         WHERE COALESCE(bo.room_id, b.room_id) = ?1
-           AND b.id != ?2
-           AND b.deleted_at IS NULL
-           AND bo.status IN ('pending','approved')
-           AND bos.start_at IN (${placeholders})
-         LIMIT 1`,
-      )
-        .bind(targetRoomId, bookingId, ...chunk)
-        .first<{ start_at: string }>()
-
-      if (overlap) {
-        throw createError({ statusCode: 409, statusMessage: 'Ruangan tujuan tidak tersedia pada salah satu jadwal booking ini' })
-      }
-    }
-  }
+  await ensureNoCombinedSlotOverlap(env.DB, targetRoomId, (slots.results || []).map((slot) => ({ start: slot.start_at, end: slot.end_at })),
+    'Ruangan tujuan tidak tersedia pada salah satu jadwal booking ini', { excludeBookingId: bookingId })
 
   const at = nowIso()
   await env.DB.batch([

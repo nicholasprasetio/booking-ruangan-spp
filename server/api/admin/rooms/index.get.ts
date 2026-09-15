@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
   const rooms = await env.DB.prepare(
     `SELECT id, name, location, capacity, description,
             open_time_start, open_time_end, slot_minutes,
-            COALESCE(available_for_booking, 1) AS available_for_booking,
+            COALESCE(available_for_booking, 1) AS available_for_booking, COALESCE(is_combined, 0) AS is_combined,
             created_at, updated_at
      FROM rooms
      WHERE ${whereSql}
@@ -52,11 +52,25 @@ export default defineEventHandler(async (event) => {
       open_time_end: string | null
       slot_minutes: number | null
       available_for_booking: number | null
+      is_combined: number | null
       created_at: string | null
       updated_at: string | null
     }>()
 
   const roomIds = rooms.results.map((room) => room.id)
+  const membersByCombinedRoom = new Map<number, Array<{ id: number; name: string | null }>>()
+  if (roomIds.length > 0) {
+    const placeholders = roomIds.map(() => '?').join(', ')
+    const members = await env.DB.prepare(
+      `SELECT m.combined_room_id, r.id, r.name FROM room_combined_members m JOIN rooms r ON r.id = m.member_room_id
+       WHERE m.combined_room_id IN (${placeholders}) ORDER BY r.name ASC, r.id ASC`,
+    ).bind(...roomIds).all<{ combined_room_id: number; id: number; name: string | null }>()
+    for (const member of members.results || []) {
+      const list = membersByCombinedRoom.get(member.combined_room_id) || []
+      list.push({ id: member.id, name: member.name })
+      membersByCombinedRoom.set(member.combined_room_id, list)
+    }
+  }
   const photosByRoom = new Map<number, Array<{ id: number; url: string; thumbnailUrl: string; created_at: string | null }>>()
   if (roomIds.length > 0) {
     const placeholders = roomIds.map(() => '?').join(', ')
@@ -90,6 +104,7 @@ export default defineEventHandler(async (event) => {
   const enrichedRooms = rooms.results.map((room) => ({
     ...room,
     photos: photosByRoom.get(room.id) || [],
+    members: membersByCombinedRoom.get(room.id) || [],
   }))
 
   const total = totalRow?.total || 0

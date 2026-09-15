@@ -11,6 +11,7 @@ import {
   resolveOccurrenceForAction,
 } from '../../utils/booking-v2'
 import { ensureBookingLeadTime } from '../../utils/settings'
+import { ensureCombinedRoomAvailable, ensureNoCombinedSlotOverlap, slotRangesFromStarts } from '../../utils/combined-rooms'
 
 type RescheduleBookingBody = {
   bookingId?: number
@@ -74,6 +75,7 @@ export default defineEventHandler(async (event) => {
   if (!room) {
     throw createError({ statusCode: 404, statusMessage: 'Room not found or not available for booking' })
   }
+  await ensureCombinedRoomAvailable(env.DB, Number(booking.room_id))
 
   const slotMinutes = room.slot_minutes || 60
   const openStartMin = toMinutes(room.open_time_start || '00:00')
@@ -87,29 +89,10 @@ export default defineEventHandler(async (event) => {
     slotMinutes,
   })
 
-  for (let i = 0; i < slotStartIsos.length; i += 98) {
-    const chunk = slotStartIsos.slice(i, i + 98)
-    const placeholders = chunk.map((_, idx) => `?${idx + 3}`).join(', ')
-    const overlap = await env.DB
-      .prepare(
-        `SELECT bos.start_at
-         FROM booking_occurrence_slots bos
-         JOIN booking_occurrences bo ON bo.id = bos.occurrence_id
-         JOIN bookings b ON b.id = bo.booking_id
-         WHERE b.room_id = ?1
-           AND b.deleted_at IS NULL
-           AND bo.id != ?2
-           AND bo.status IN ('pending','approved')
-           AND bos.start_at IN (${placeholders})
-         LIMIT 1`,
-      )
-      .bind(Number(booking.room_id), target.id, ...chunk)
-      .first<{ start_at: string }>()
-
-    if (overlap) {
-      throw createError({ statusCode: 409, statusMessage: 'Room is not available in the selected slots' })
-    }
-  }
+  await ensureNoCombinedSlotOverlap(
+    env.DB, Number(booking.room_id), slotRangesFromStarts(slotStartIsos, slotMinutes),
+    'Room is not available in the selected slots', { excludeOccurrenceId: target.id },
+  )
 
   if (body?.participantCount !== undefined && body?.participantCount !== null) {
     const count = Number(body.participantCount)

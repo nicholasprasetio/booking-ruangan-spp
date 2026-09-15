@@ -1,5 +1,5 @@
 import type { PaginatedResponse } from '~/models/pagination'
-import type { Room, RoomPhoto, RoomUpsertPayload } from '~/models/room'
+import type { CombinedRoomPayload, Room, RoomPhoto, RoomUpsertPayload } from '~/models/room'
 
 export function fetchAdminRooms(
   params: { page: number; pageSize: number; search?: string },
@@ -25,6 +25,14 @@ export function updateAdminRoom(id: number, payload: RoomUpsertPayload, headers:
     headers,
     body: payload,
   })
+}
+
+export function createCombinedAdminRoom(payload: CombinedRoomPayload, headers: Record<string, string>) {
+  return $fetch<{ ok: boolean; room: Room }>('/api/admin/rooms/combined', { method: 'POST', headers, body: payload })
+}
+
+export function updateCombinedAdminRoom(id: number, payload: CombinedRoomPayload, headers: Record<string, string>) {
+  return $fetch<{ ok: boolean; room: Room }>(`/api/admin/rooms/${id}/combined`, { method: 'PUT', headers, body: payload })
 }
 
 export function deleteAdminRoom(id: number, headers: Record<string, string>) {

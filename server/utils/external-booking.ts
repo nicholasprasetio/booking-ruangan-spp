@@ -3,6 +3,7 @@ import type { D1Database } from '@cloudflare/workers-types'
 import { buildSlotStartIsosForDate, toIsoNoMs, toMinutes } from './booking-slots'
 import { nowIso, recalculateBookingSummary } from './booking-v2'
 import { addDaysToYmd, getBookingMinLeadDays, jakartaTodayYmd } from './settings'
+import { ensureCombinedRoomAvailable, ensureNoCombinedSlotOverlap, slotRangesFromStarts } from './combined-rooms'
 
 export type RoomBookingInput = {
   roomId: number
@@ -84,6 +85,8 @@ export async function getRoomForBooking(db: D1Database, roomId: number): Promise
   if (!room) {
     throw createError({ statusCode: 404, statusMessage: 'Room not found or not available for booking' })
   }
+
+  await ensureCombinedRoomAvailable(db, roomId)
 
   return room
 }
@@ -226,30 +229,8 @@ export async function ensureNoApprovedOrPendingOverlap(
   slotStartIsos: string[],
   message = 'Room is not available in the selected slots',
 ): Promise<void> {
-  if (!slotStartIsos.length) return
-
-  for (let i = 0; i < slotStartIsos.length; i += 99) {
-    const chunk = slotStartIsos.slice(i, i + 99)
-    const placeholders = chunk.map((_, idx) => `?${idx + 2}`).join(', ')
-    const overlap = await db
-      .prepare(
-        `SELECT bos.start_at
-         FROM booking_occurrence_slots bos
-         JOIN booking_occurrences bo ON bo.id = bos.occurrence_id
-         JOIN bookings b ON b.id = bo.booking_id
-         WHERE b.room_id = ?1
-           AND b.deleted_at IS NULL
-           AND bo.status IN ('pending','approved')
-           AND bos.start_at IN (${placeholders})
-         LIMIT 1`,
-      )
-      .bind(roomId, ...chunk)
-      .first<{ start_at: string }>()
-
-    if (overlap) {
-      throw createError({ statusCode: 409, statusMessage: message })
-    }
-  }
+  const room = await getRoomForBooking(db, roomId)
+  await ensureNoCombinedSlotOverlap(db, roomId, slotRangesFromStarts(slotStartIsos, Number(room.slot_minutes || 60)), message)
 }
 
 async function getExternalRequesterUserId(db: D1Database): Promise<number> {

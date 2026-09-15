@@ -4,6 +4,7 @@ import { requireAuth } from '../../../../../../utils/auth'
 import { requireRole } from '../../../../../../utils/roles'
 import { nowIso, recalculateBookingSummary } from '../../../../../../utils/booking-v2'
 import { sendEmail } from '../../../../../../utils/email'
+import { ensureCombinedRoomAvailable, ensureNoCombinedSlotOverlap } from '../../../../../../utils/combined-rooms'
 
 export default defineEventHandler(async (event) => {
   const auth = await requireAuth(event)
@@ -51,31 +52,16 @@ export default defineEventHandler(async (event) => {
     .bind(targetRoomId)
     .first<{ id: number; name: string | null }>()
   if (!room) throw createError({ statusCode: 404, statusMessage: 'Target room not found or not available for booking' })
+  await ensureCombinedRoomAvailable(env.DB, targetRoomId)
 
   const slots = await env.DB.prepare(
-    `SELECT start_at
+    `SELECT start_at, end_at
      FROM booking_occurrence_slots
      WHERE occurrence_id = ?1
      ORDER BY start_at ASC`,
-  ).bind(occurrenceId).all<{ start_at: string }>()
-  const starts = (slots.results || []).map((row) => row.start_at)
-
-  if (starts.length) {
-    const placeholders = starts.map((_, idx) => `?${idx + 3}`).join(', ')
-    const overlap = await env.DB.prepare(
-      `SELECT bos.start_at
-       FROM booking_occurrence_slots bos
-       JOIN booking_occurrences bo ON bo.id = bos.occurrence_id
-       JOIN bookings b ON b.id = bo.booking_id
-       WHERE COALESCE(bo.room_id, b.room_id) = ?1
-         AND bo.id != ?2
-         AND b.deleted_at IS NULL
-         AND bo.status IN ('pending','approved')
-         AND bos.start_at IN (${placeholders})
-       LIMIT 1`,
-    ).bind(targetRoomId, occurrenceId, ...starts).first<{ start_at: string }>()
-    if (overlap) throw createError({ statusCode: 409, statusMessage: 'Ruangan tujuan tidak tersedia pada jadwal sesi ini' })
-  }
+  ).bind(occurrenceId).all<{ start_at: string; end_at: string }>()
+  await ensureNoCombinedSlotOverlap(env.DB, targetRoomId, (slots.results || []).map((slot) => ({ start: slot.start_at, end: slot.end_at })),
+    'Ruangan tujuan tidak tersedia pada jadwal sesi ini', { excludeOccurrenceId: occurrenceId })
 
   const at = nowIso()
   await env.DB.batch([
