@@ -4,7 +4,7 @@
     <Sidebar class="hidden md:flex" />
     
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col min-h-0">
+    <div class="flex-1 flex min-w-0 flex-col min-h-0">
       <!-- Mobile Header (optional - for responsive menu button) -->
       <div class="md:hidden bg-white border-b border-gray-200 p-4 flex items-center justify-between space-x-4">
         <div class="flex items-center space-x-4">
@@ -35,7 +35,7 @@
       </div>
 
       <!-- Page Content -->
-      <main class="flex-1 overflow-y-auto min-h-0 bg-gray-50 py-4 px-2 md:py-8 md:px-0">
+      <main class="flex-1 min-w-0 min-h-0 overflow-x-hidden overflow-y-auto bg-gray-50 px-2 py-4 md:px-0 md:py-8">
         <slot />
       </main>
 

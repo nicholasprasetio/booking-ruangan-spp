@@ -8,14 +8,14 @@
             <h1 class="text-3xl font-bold text-gray-900">{{ tr('Manajemen Ruangan', 'Room Management') }}</h1>
             <p class="text-gray-600 mt-1">{{ tr('Kelola daftar ruangan yang tersedia untuk peminjaman.', 'Manage rooms available for booking.') }}</p>
           </div>
-          <div class="flex flex-wrap items-center gap-2">
-            <div class="relative">
+          <div class="flex w-full flex-wrap items-center gap-2 md:w-auto">
+            <div class="relative min-w-0 flex-1 md:flex-none">
               <Icon name="mdi:magnify" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 v-model="search"
                 type="text"
                 :placeholder="tr('Cari ruangan...', 'Search rooms...')"
-                class="pl-10 pr-4 py-2 rounded-xl border border-gray-200 bg-white text-sm"
+                class="w-full min-w-0 pl-10 pr-4 py-2 rounded-xl border border-gray-200 bg-white text-sm md:w-auto"
               />
             </div>
             <button

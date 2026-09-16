@@ -7,15 +7,15 @@
             <h1 class="text-3xl font-bold text-gray-900">{{ tr('Semua Peminjaman', 'All Bookings') }}</h1>
             <p class="text-gray-600 mt-1">{{ tr('Kelola persetujuan peminjaman.', 'Manage booking approvals.') }}</p>
           </div>
-          <div class="flex flex-wrap items-center gap-3">
+          <div class="flex w-full flex-wrap items-center gap-3 md:w-auto">
             <template v-if="currentTab !== 'report'">
-              <div class="relative">
+              <div class="relative min-w-0 flex-1 md:flex-none">
                 <Icon name="mdi:magnify" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   v-model="search"
                   type="text"
                   :placeholder="tr('Cari ruangan / pemesan...', 'Search room / requester...')"
-                  class="pl-10 pr-4 py-2 rounded-xl border border-gray-200 bg-white text-sm"
+                  class="w-full min-w-0 pl-10 pr-4 py-2 rounded-xl border border-gray-200 bg-white text-sm md:w-auto"
                 />
               </div>
               <select
@@ -41,8 +41,8 @@
           </div>
         </div>
 
-        <div class="overflow-x-auto pb-1 mb-6">
-          <div class="flex min-w-max items-center gap-3">
+        <div class="mb-6">
+          <div class="flex flex-wrap items-center gap-3">
           <button
             class="px-4 py-2 rounded-full text-sm font-semibold border transition"
             :class="tabClass('pending')"
