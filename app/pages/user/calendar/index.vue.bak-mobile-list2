@@ -55,133 +55,9 @@
           {{ error }}
         </div>
 
-        <div class="booking-calendar-shell w-full min-w-0 max-w-full bg-white rounded-2xl shadow-xl border border-gray-100 p-3 sm:p-4">
-
-  <div class="mobile-calendar-view">
-
-    <div class="mobile-calendar-toolbar">
-
-      <div class="flex items-center gap-2">
-
-        <button type="button" class="mobile-calendar-nav" @click="mobilePrev">‹</button>
-
-        <button type="button" class="mobile-calendar-nav" @click="mobileNext">›</button>
-
-        <button type="button" class="mobile-calendar-today" @click="mobileToday">
-
-          {{ tr('Hari Ini', 'Today') }}
-
-        </button>
-
-      </div>
-
-
-
-      <div class="mobile-calendar-title">
-
-        {{ mobileCalendarTitle }}
-
-      </div>
-
-    </div>
-
-
-
-    <div v-if="mobileCalendarGroups.length" class="mobile-calendar-groups">
-
-      <section
-
-        v-for="group in mobileCalendarGroups"
-
-        :key="group.date"
-
-        class="mobile-calendar-day"
-
-      >
-
-        <div class="mobile-calendar-day-title">
-
-          {{ group.label }}
-
+        <div class="booking-calendar-shell w-full min-w-0 max-w-full bg-white rounded-2xl shadow-xl border border-gray-100 p-3 sm:p-4 overflow-x-auto">
+          <FullCalendar ref="calendarRef" :options="calendarOptions" />
         </div>
-
-
-
-        <button
-
-          v-for="event in group.events"
-
-          :key="String(event.id)"
-
-          type="button"
-
-          class="mobile-calendar-event"
-
-          @click="openMobileEvent(event)"
-
-        >
-
-          <span
-
-            class="mobile-calendar-dot"
-
-            :style="{ backgroundColor: String(event.backgroundColor || '#10b981') }"
-
-          ></span>
-
-
-
-          <div class="mobile-calendar-event-body">
-
-            <div class="mobile-calendar-event-time">
-
-              {{ mobileEventTime(event) }}
-
-            </div>
-
-
-
-            <div class="mobile-calendar-event-room">
-
-              {{ event.extendedProps?.room_name || tr('Ruangan', 'Room') }}
-
-            </div>
-
-
-
-            <div class="mobile-calendar-event-activity">
-
-              {{ event.extendedProps?.activity_name || tr('Peminjaman Ruangan', 'Room Booking') }}
-
-            </div>
-
-          </div>
-
-        </button>
-
-      </section>
-
-    </div>
-
-
-
-    <div v-else class="mobile-calendar-empty">
-
-      {{ tr('Tidak ada jadwal pada bulan ini.', 'No bookings this month.') }}
-
-    </div>
-
-  </div>
-
-
-
-  <div class="desktop-calendar-view">
-
-    <FullCalendar ref="calendarRef" :options="calendarOptions" />
-
-  </div>
-
-</div>
       </div>
     </div>
 
@@ -307,228 +183,6 @@ const selectedEvent = ref<any>(null)
 const currentStart = ref<string>('')
 const currentEnd = ref<string>('')
 
-
-
-const mobileCalendarDate = ref(new Date())
-
-
-
-const mobileCalendarTitle = computed(() =>
-
-  mobileCalendarDate.value.toLocaleDateString(localeTag.value, {
-
-    month: 'long',
-
-    year: 'numeric',
-
-  }),
-
-)
-
-
-
-function syncMobileCalendarDate() {
-
-  const api = calendarRef.value?.getApi()
-
-  const date = api?.getDate()
-
-
-
-  if (date) {
-
-    mobileCalendarDate.value = new Date(date)
-
-  }
-
-}
-
-
-
-const mobileCalendarGroups = computed(() => {
-
-  const year = mobileCalendarDate.value.getFullYear()
-
-  const month = String(mobileCalendarDate.value.getMonth() + 1).padStart(2, '0')
-
-  const monthKey = `${year}-${month}`
-
-
-
-  const grouped = new Map<string, EventInput[]>()
-
-
-
-  for (const event of events.value) {
-
-    const date = String(event.start || '').replace('T', ' ').slice(0, 10)
-
-
-
-    if (!date || !date.startsWith(monthKey)) continue
-
-
-
-    if (!grouped.has(date)) {
-
-      grouped.set(date, [])
-
-    }
-
-
-
-    grouped.get(date)!.push(event)
-
-  }
-
-
-
-  return Array.from(grouped.entries())
-
-    .sort(([a], [b]) => a.localeCompare(b))
-
-    .map(([date, dayEvents]) => {
-
-      const [y, m, d] = date.split('-').map(Number)
-
-
-
-      const label = new Date(y, m - 1, d).toLocaleDateString(localeTag.value, {
-
-        weekday: 'long',
-
-        day: 'numeric',
-
-        month: 'long',
-
-        year: 'numeric',
-
-      })
-
-
-
-      return {
-
-        date,
-
-        label,
-
-        events: [...dayEvents].sort((a, b) =>
-
-          String(a.start || '').localeCompare(String(b.start || '')),
-
-        ),
-
-      }
-
-    })
-
-})
-
-
-
-function mobileEventTime(event: EventInput) {
-
-  const start = String(event.start || '').replace('T', ' ')
-
-  const end = String(event.end || '').replace('T', ' ')
-
-
-
-  const startMatch = start.match(/[ T](\d{2}):(\d{2})/)
-
-  const endMatch = end.match(/[ T](\d{2}):(\d{2})/)
-
-
-
-  const startTime = startMatch ? `${startMatch[1]}:${startMatch[2]}` : '-'
-
-  const endTime = endMatch ? `${endMatch[1]}:${endMatch[2]}` : ''
-
-
-
-  return endTime ? `${startTime} - ${endTime}` : startTime
-
-}
-
-
-
-function openMobileEvent(event: EventInput) {
-
-  selectedEvent.value = {
-
-    ...event,
-
-    extendedProps: {
-
-      ...(event.extendedProps || {}),
-
-      start_at: event.start,
-
-      end_at: event.end,
-
-    },
-
-  }
-
-
-
-  showEventDetail.value = true
-
-}
-
-
-
-function mobilePrev() {
-
-  const api = calendarRef.value?.getApi()
-
-  if (!api) return
-
-
-
-  api.prev()
-
-  syncMobileCalendarDate()
-
-}
-
-
-
-function mobileNext() {
-
-  const api = calendarRef.value?.getApi()
-
-  if (!api) return
-
-
-
-  api.next()
-
-  syncMobileCalendarDate()
-
-}
-
-
-
-function mobileToday() {
-
-  const api = calendarRef.value?.getApi()
-
-  if (!api) return
-
-
-
-  api.today()
-
-  syncMobileCalendarDate()
-
-}
-
-
-
-
-
 const calendarOptions = computed<CalendarOptions>(() => ({
   timeZone: 'Asia/Jakarta',
   plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
@@ -602,7 +256,6 @@ function handleDatesSet(arg: DatesSetArg) {
   if (start !== currentStart.value || end !== currentEnd.value) {
     currentStart.value = start
     currentEnd.value = end
-    syncMobileCalendarDate()
     fetchEvents()
   }
   calendarReady.value = true
@@ -824,24 +477,6 @@ watch(statusFilter, () => {
 </script>
 
 <style>
-
-
-.mobile-calendar-view {
-
-  display: none;
-
-}
-
-
-
-.desktop-calendar-view {
-
-  display: block;
-
-}
-
-
-
 .fc .fc-toolbar-title {
   font-size: 1.25rem !important;
   font-weight: 700 !important;
@@ -879,9 +514,6 @@ watch(statusFilter, () => {
 .fc .fc-day-today {
   background-color: #eef2ff !important;
 }
-
-
-
 @media (max-width: 640px) {
 
   .booking-calendar-shell {
@@ -894,295 +526,44 @@ watch(statusFilter, () => {
 
     min-width: 0;
 
-    overflow: hidden !important;
+    overflow-x: auto !important;
 
-    padding: 0.65rem !important;
+    overflow-y: hidden;
 
-  }
+    -webkit-overflow-scrolling: touch;
 
+    overscroll-behavior-x: contain;
 
-
-  .mobile-calendar-view {
-
-    display: block !important;
-
-    width: 100%;
+    touch-action: pan-x pan-y;
 
   }
 
 
 
-  .desktop-calendar-view {
+  .booking-calendar-shell .fc {
 
-    display: none !important;
+    width: 680px;
 
-  }
+    min-width: 680px;
 
-
-
-  .mobile-calendar-toolbar {
-
-    display: flex;
-
-    flex-direction: column;
-
-    gap: 0.7rem;
-
-    margin-bottom: 0.8rem;
+    max-width: none;
 
   }
-
-
-
-  .mobile-calendar-toolbar > div:first-child {
-
-    display: flex;
-
-    align-items: center;
-
-    gap: 0.45rem;
-
+  .fc .fc-toolbar {
+    align-items: flex-start !important;
+    gap: 0.5rem !important;
   }
-
-
-
-  .mobile-calendar-nav {
-
-    width: 42px;
-
-    height: 40px;
-
-    border: 0;
-
-    border-radius: 0.7rem;
-
-    background: #4f46e5;
-
-    color: #fff;
-
-    font-size: 1.7rem;
-
-    line-height: 1;
-
-    font-weight: 700;
-
+  .fc .fc-toolbar-title {
+    font-size: 1rem !important;
+    line-height: 1.25rem !important;
   }
-
-
-
-  .mobile-calendar-today {
-
-    min-height: 40px;
-
-    padding: 0 0.85rem;
-
-    border: 0;
-
-    border-radius: 0.7rem;
-
-    background: #8b7cf0;
-
-    color: #fff;
-
-    font-size: 0.78rem;
-
-    font-weight: 700;
-
+  .fc .fc-button {
+    font-size: 0.75rem !important;
+    padding: 0.25rem 0.5rem !important;
   }
-
-
-
-  .mobile-calendar-title {
-
-    text-align: center;
-
-    color: #111827;
-
-    font-size: 1rem;
-
-    font-weight: 800;
-
-    text-transform: capitalize;
-
+  .fc .fc-daygrid-event {
+    font-size: 0.6875rem !important;
+    line-height: 1rem !important;
   }
-
-
-
-  .mobile-calendar-groups {
-
-    display: flex;
-
-    flex-direction: column;
-
-    gap: 0.75rem;
-
-  }
-
-
-
-  .mobile-calendar-day {
-
-    overflow: hidden;
-
-    border: 1px solid #e5e7eb;
-
-    border-radius: 0.9rem;
-
-    background: #fff;
-
-  }
-
-
-
-  .mobile-calendar-day-title {
-
-    padding: 0.7rem 0.8rem;
-
-    background: #f5f7ff;
-
-    color: #111827;
-
-    font-size: 0.84rem;
-
-    font-weight: 800;
-
-    line-height: 1.3;
-
-    text-transform: capitalize;
-
-  }
-
-
-
-  .mobile-calendar-event {
-
-    width: 100%;
-
-    display: flex;
-
-    align-items: flex-start;
-
-    gap: 0.6rem;
-
-    padding: 0.75rem 0.8rem;
-
-    border: 0;
-
-    border-top: 1px solid #f1f5f9;
-
-    background: #fff;
-
-    text-align: left;
-
-  }
-
-
-
-  .mobile-calendar-event:active {
-
-    background: #f8fafc;
-
-  }
-
-
-
-  .mobile-calendar-dot {
-
-    flex: 0 0 9px;
-
-    width: 9px;
-
-    height: 9px;
-
-    margin-top: 0.38rem;
-
-    border-radius: 999px;
-
-  }
-
-
-
-  .mobile-calendar-event-body {
-
-    min-width: 0;
-
-    flex: 1;
-
-  }
-
-
-
-  .mobile-calendar-event-time {
-
-    margin-bottom: 0.2rem;
-
-    color: #4f46e5;
-
-    font-size: 0.73rem;
-
-    font-weight: 800;
-
-  }
-
-
-
-  .mobile-calendar-event-room {
-
-    color: #111827;
-
-    font-size: 0.85rem;
-
-    font-weight: 800;
-
-    line-height: 1.35;
-
-    white-space: normal;
-
-    overflow: visible;
-
-    overflow-wrap: anywhere;
-
-    word-break: break-word;
-
-  }
-
-
-
-  .mobile-calendar-event-activity {
-
-    margin-top: 0.15rem;
-
-    color: #475569;
-
-    font-size: 0.78rem;
-
-    line-height: 1.4;
-
-    white-space: normal;
-
-    overflow: visible;
-
-    overflow-wrap: anywhere;
-
-    word-break: break-word;
-
-  }
-
-
-
-  .mobile-calendar-empty {
-
-    padding: 2rem 1rem;
-
-    text-align: center;
-
-    color: #64748b;
-
-    font-size: 0.9rem;
-
-  }
-
 }
-
-
 </style>

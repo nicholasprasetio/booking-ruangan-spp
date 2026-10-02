@@ -253,124 +253,6 @@ async function fetchRooms() {
   }
 }
 
-
-
-function dt(value: any): string {
-
-  return String(value || '').replace('T', ' ').slice(0, 19)
-
-}
-
-
-
-function mergeAdjacentEvents(items: EventInput[]): EventInput[] {
-
-  const sorted = [...items].sort((a, b) => {
-
-    const sa = dt(a.start)
-
-    const sb = dt(b.start)
-
-    if (sa !== sb) return sa.localeCompare(sb)
-
-    return dt(a.end).localeCompare(dt(b.end))
-
-  })
-
-
-
-  const result: EventInput[] = []
-
-
-
-  for (const item of sorted) {
-
-    const previous = result[result.length - 1]
-
-
-
-    if (!previous) {
-
-      result.push({ ...item })
-
-      continue
-
-    }
-
-
-
-    const a = previous.extendedProps || {}
-
-    const b = item.extendedProps || {}
-
-
-
-    const sameBooking =
-
-      a.booking_id != null &&
-
-      b.booking_id != null &&
-
-      String(a.booking_id) === String(b.booking_id)
-
-
-
-    const sameRoom =
-
-      String(a.room_id ?? '') === String(b.room_id ?? '')
-
-
-
-    const sameActivity =
-
-      String(a.activity_name ?? '') === String(b.activity_name ?? '')
-
-
-
-    const sameStatus =
-
-      String(a.status ?? '') === String(b.status ?? '')
-
-
-
-    const adjacent =
-
-      dt(previous.end) !== '' &&
-
-      dt(item.start) !== '' &&
-
-      dt(previous.end) === dt(item.start)
-
-
-
-    if (sameBooking && sameRoom && sameActivity && sameStatus && adjacent) {
-
-      previous.end = item.end
-
-      previous.extendedProps = {
-
-        ...a,
-
-        end_at: item.end,
-
-      }
-
-    } else {
-
-      result.push({ ...item })
-
-    }
-
-  }
-
-
-
-  return result
-
-}
-
-
-
 async function fetchEvents() {
   if (!currentStart.value || !currentEnd.value) return
   loading.value = true
@@ -383,65 +265,32 @@ async function fetchEvents() {
     if (selectedRoomId.value) params.room_id = selectedRoomId.value
 
     const res = await fetchCalendarEvents(params, auth.authHeaders())
-    const mappedEvents: EventInput[] = (res.data || []).map(ev => {
-
+    events.value = (res.data || []).map(ev => {
       const color = getRoomColor(ev.room_id)
-
       const isPending = ev.status === 'pending'
-
-
-
       return {
-
         id: `${ev.id}-${ev.start}`,
-
         title: `${ev.room_name} - ${ev.activity_name || tr('Peminjaman', 'Booking')}`,
-
         start: ev.start,
-
         end: ev.end,
-
         backgroundColor: isPending ? '#fbbf24' : color.bg,
-
         borderColor: isPending ? '#f59e0b' : color.border,
-
         textColor: isPending ? '#78350f' : color.text,
-
         extendedProps: {
-
           booking_id: ev.booking_id,
-
           occurrence_id: ev.id,
-
           room_id: ev.room_id,
-
           room_name: ev.room_name,
-
           status: ev.status,
-
           booking_status: ev.booking_status,
-
           user_name: ev.user_name,
-
           activity_name: ev.activity_name,
-
           participant_count: ev.participant_count,
-
-          start_at: ev.start,
-
+                  start_at: ev.start,
           end_at: ev.end,
-
-        },
-
+},
       }
-
     })
-
-
-
-    events.value = mergeAdjacentEvents(mappedEvents)
-
-
   } catch (e: any) {
     error.value = e?.data?.statusMessage || e?.statusMessage || tr('Gagal memuat jadwal.', 'Failed to load schedule.')
   } finally {
