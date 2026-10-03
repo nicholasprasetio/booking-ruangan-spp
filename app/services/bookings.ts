@@ -55,6 +55,7 @@ export function cancelBooking(
 export function rescheduleBooking(
   bookingId: number,
   payload: {
+    roomId?: number
     occurrenceId?: number
     date: string
     slots: string[]
