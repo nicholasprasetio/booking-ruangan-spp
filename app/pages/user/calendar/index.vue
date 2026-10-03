@@ -819,8 +819,40 @@ async function goRescheduleAll(event: any) {
 }
 
 watch(statusFilter, () => {
+
   fetchEvents()
+
 })
+
+
+
+if (import.meta.client) {
+
+  const handleCalendarFocus = () => fetchEvents()
+
+
+
+  const handleCalendarVisibility = () => {
+
+    if (document.visibilityState === 'visible') fetchEvents()
+
+  }
+
+
+
+  const handleCalendarPageShow = () => fetchEvents()
+
+
+
+  window.addEventListener('focus', handleCalendarFocus)
+
+  window.addEventListener('pageshow', handleCalendarPageShow)
+
+  document.addEventListener('visibilitychange', handleCalendarVisibility)
+
+}
+
+
 </script>
 
 <style>
