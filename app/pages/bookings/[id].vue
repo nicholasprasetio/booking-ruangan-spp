@@ -387,21 +387,34 @@ function formatOccurrenceSchedule(occurrence: BookingOccurrence): string {
     return `${formatDateTime(occurrence.start_at)} - ${formatDateTime(occurrence.end_at)}`
   }
 
-  const groups = new Map<string, string[]>()
+  const groups = new Map<string, Array<{ start: Date; end: Date }>>()
   for (const s of slots) {
     const start = new Date(s.start_at)
     const end = new Date(s.end_at)
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue
+
     const dateKey = start.toLocaleDateString(localeTag.value, { year: 'numeric', month: 'short', day: 'numeric' })
-    const timeLabel = `${start.toLocaleTimeString(localeTag.value, { hour: '2-digit', minute: '2-digit' })}-${end.toLocaleTimeString(
-      localeTag.value,
-      { hour: '2-digit', minute: '2-digit' },
-    )}`
     const list = groups.get(dateKey) || []
-    list.push(timeLabel)
+    list.push({ start, end })
     groups.set(dateKey, list)
   }
 
-  return Array.from(groups.entries()).map(([dateKey, ranges]) => `${dateKey}: ${Array.from(new Set(ranges)).join(', ')}`).join(' | ')
+  return Array.from(groups.entries())
+    .map(([dateKey, slotsOnDate]) => {
+      const ranges: Array<{ start: Date; end: Date }> = []
+      for (const slot of [...slotsOnDate].sort((a, b) => a.start.getTime() - b.start.getTime())) {
+        const previous = ranges[ranges.length - 1]
+        if (previous && slot.start.getTime() <= previous.end.getTime()) {
+          if (slot.end.getTime() > previous.end.getTime()) previous.end = slot.end
+        } else {
+          ranges.push({ ...slot })
+        }
+      }
+
+      const time = (value: Date) => value.toLocaleTimeString(localeTag.value, { hour: '2-digit', minute: '2-digit' })
+      return `${dateKey}: ${ranges.map((range) => `${time(range.start)}-${time(range.end)}`).join(', ')}`
+    })
+    .join(' | ')
 }
 
 async function goRescheduleOccurrence(b: Booking, occ: BookingOccurrence) {
