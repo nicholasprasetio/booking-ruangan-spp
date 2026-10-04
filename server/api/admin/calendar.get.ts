@@ -2,6 +2,7 @@ import { createError, getQuery } from 'h3'
 import { getCloudflareEnv } from '../../utils/cf-env'
 import { requireAuth } from '../../utils/auth'
 import { requireRole } from '../../utils/roles'
+import { mergeContiguousCalendarSlots } from '../../utils/calendar-events'
 
 export default defineEventHandler(async (event) => {
   const auth = await requireAuth(event)
@@ -78,7 +79,7 @@ export default defineEventHandler(async (event) => {
       end_at: string
     }>()
 
-  const events = (results.results || []).map((row) => ({
+  const events = mergeContiguousCalendarSlots(results.results || []).map((row) => ({
     id: row.occurrence_id,
     booking_id: row.booking_id,
     title: `${row.activity_name || 'Peminjaman'} - ${row.room_name || 'Room'}`,

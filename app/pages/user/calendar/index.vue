@@ -203,6 +203,7 @@ const calendarOptions = computed<CalendarOptions>(() => ({
     minute: '2-digit',
     hour12: false,
   },
+  displayEventEnd: true,
   slotMinTime: '06:00:00',
   slotMaxTime: '22:00:00',
   buttonText: {
@@ -321,60 +322,40 @@ function refetchEvents() {
   fetchEvents()
 }
 
-function formatWibDateTime(value: string): string {
+function formatEventTime(event: any): string {
+  const start = event?.extendedProps?.start_at;
+  const end = event?.extendedProps?.end_at;
 
-  const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/)
+  if (!start) return '-';
 
-  if (!match) return String(value || '-')
+  const parseDate = (value: string) =>
+    new Date(value.replace(' ', 'T'));
 
+  const formatDateTime = (value: string) =>
+    new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(parseDate(value));
 
+  const formatTime = (value: string) =>
+    new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(parseDate(value));
 
-  const [, y, mo, d, h, mi] = match
+  if (!end) return formatDateTime(start);
 
-  return `${d} ${mo}-${y} ${h}:${mi}`
+  const startDate = start.slice(0, 10);
+  const endDate = end.slice(0, 10);
 
-}
-
-
-
-function formatEventTime(event: any) {
-
-  const start = event?.extendedProps?.start_at
-
-  const end = event?.extendedProps?.end_at
-
-
-
-  if (!start) return '-'
-
-
-
-  const startStr = formatWibDateTime(start)
-
-  if (!end) return startStr
-
-
-
-  const startDate = String(start).slice(0, 10)
-
-  const endDate = String(end).slice(0, 10)
-
-
-
-  if (startDate === endDate) {
-
-    const endMatch = String(end).match(/[ T](\d{2}):(\d{2})/)
-
-    const endTime = endMatch ? `${endMatch[1]}:${endMatch[2]}` : String(end)
-
-    return `${startStr} - ${endTime}`
-
-  }
-
-
-
-  return `${startStr} - ${formatWibDateTime(end)}`
-
+  return startDate === endDate
+    ? `${formatDateTime(start)} - ${formatTime(end)}`
+    : `${formatDateTime(start)} - ${formatDateTime(end)}`;
 }
 
 function canCancelOccurrence(event: any) {

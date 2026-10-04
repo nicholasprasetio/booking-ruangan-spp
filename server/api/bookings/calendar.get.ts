@@ -1,6 +1,7 @@
 import { createError, getQuery } from 'h3'
 import { getCloudflareEnv } from '../../utils/cf-env'
 import { requireAuth } from '../../utils/auth'
+import { mergeContiguousCalendarSlots } from '../../utils/calendar-events'
 
 const ALLOWED_STATUSES = new Set(['pending', 'approved', 'rejected', 'completed', 'canceled'])
 
@@ -50,8 +51,8 @@ export default defineEventHandler(async (event) => {
       `SELECT
           bo.id as occurrence_id,
           bo.status as occurrence_status,
-          bo.start_at,
-          bo.end_at,
+          bos.start_at,
+          bos.end_at,
           bo.occurrence_date,
           b.id as booking_id,
           b.status as booking_status,
@@ -65,10 +66,11 @@ export default defineEventHandler(async (event) => {
        JOIN bookings b ON b.id = bo.booking_id
        JOIN rooms r ON r.id = b.room_id
        LEFT JOIN rooms oroom ON oroom.id = bo.room_id
+       JOIN booking_occurrence_slots bos ON bos.occurrence_id = bo.id
        WHERE b.user_id = ?1
          AND b.deleted_at IS NULL
-         AND bo.start_at < ?2
-         AND bo.end_at > ?3
+         AND bos.start_at < ?2
+         AND bos.end_at > ?3
          AND bo.status IN (${statusPlaceholders})
        ORDER BY bo.start_at ASC
        LIMIT 3000`,
@@ -92,7 +94,7 @@ export default defineEventHandler(async (event) => {
 
   return {
     ok: true,
-    data: (rows.results || []).map((row) => ({
+    data: mergeContiguousCalendarSlots(rows.results || []).map((row) => ({
       id: Number(row.occurrence_id),
       booking_id: Number(row.booking_id),
       status: row.occurrence_status,

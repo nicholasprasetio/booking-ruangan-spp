@@ -8,7 +8,7 @@
             {{ tr('Kembali ke daftar ruangan', 'Back to room list') }}
           </NuxtLink>
           <h1 class="mt-3 text-3xl font-bold text-gray-900">{{ tr('Form Pengajuan Peminjaman', 'Room Request Form') }}</h1>
-          <p class="mt-2 text-gray-600">{{ tr('Lengkapi data pengajuan. Admin akan memeriksa sebelum booking dibuat.', 'Complete the request details. Admin will review before creating the booking.') }}</p>
+          <p class="mt-2 text-gray-600">{{ tr('Lengkapi data pengajuan. Admin akan memeriksa sebelum booking disetujui.', 'Complete the request details. Admin will review before approve the booking.') }}</p>
         </div>
       </div>
 
@@ -32,7 +32,13 @@
               <div class="mt-4 grid grid-cols-2 gap-3 text-sm text-gray-700">
                 <div>
                   <div class="text-xs text-gray-500 font-semibold uppercase">{{ tr('Tanggal', 'Date') }}</div>
-                  <div class="mt-1">{{ date }}</div>
+                  <input
+                    v-model="selectedDate"
+                    type="date"
+                    :min="dateMin"
+                    class="mt-1 w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                    @change="changeDate"
+                  />
                 </div>
                 <div>
                   <div class="text-xs text-gray-500 font-semibold uppercase">{{ tr('Kapasitas', 'Capacity') }}</div>
@@ -52,9 +58,9 @@
           </div>
 
           <div class="bg-white rounded-2xl shadow border border-gray-100 p-5">
-            <h3 class="font-bold text-gray-900">{{ tr('Pilih Slot Final', 'Choose Final Slot') }}</h3>
+            <h3 class="font-bold text-gray-900">{{ tr('Pilih Slot Waktu', 'Choose Time Slot') }}</h3>
             <p class="mt-1 text-sm text-gray-600">
-              {{ tr('Pilih slot kosong yang berurutan. Rentang ini yang akan diajukan ke admin.', 'Choose contiguous open slots. This range will be submitted to admin.') }}
+              {{ tr('Pilih slot waktu yang kosong.', 'Choose an available time slot.') }}
             </p>
 
             <div v-if="slots.length" class="mt-4 grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-3 gap-2">
@@ -175,6 +181,7 @@ const template = ref<ExternalBookingLetterTemplate | null>(null)
 const letterFile = ref<File | null>(null)
 const letterInput = ref<HTMLInputElement | null>(null)
 const minLeadDays = ref(0)
+const selectedDate = ref(queryString('date') || jakartaTodayYmd())
 
 const form = reactive({
   requesterName: '',
@@ -209,7 +216,8 @@ function addDays(ymd: string, days: number): string {
 }
 
 const roomId = computed(() => Number(queryString('roomId')))
-const date = computed(() => queryString('date') || addDays(jakartaTodayYmd(), Math.max(0, minLeadDays.value)))
+const date = computed(() => selectedDate.value)
+const dateMin = computed(() => addDays(jakartaTodayYmd(), Math.max(0, minLeadDays.value)))
 const requestedStartTime = computed(() => queryString('startTime'))
 const requestedEndTime = computed(() => queryString('endTime'))
 
@@ -382,6 +390,25 @@ function onLetterChange(event: Event) {
   letterFile.value = file
 }
 
+async function changeDate() {
+  if (!selectedDate.value || selectedDate.value < dateMin.value) {
+    selectedDate.value = dateMin.value
+  }
+
+  selectedSlots.value = []
+  slotError.value = null
+  await navigateTo({
+    path: route.path,
+    query: {
+      ...route.query,
+      date: selectedDate.value,
+      startTime: undefined,
+      endTime: undefined,
+    },
+  }, { replace: true })
+  await loadData()
+}
+
 async function loadData() {
   loading.value = true
   error.value = null
@@ -396,6 +423,9 @@ async function loadData() {
     ])
     minLeadDays.value = Number(settingsRes.settings.booking_min_lead_days || 0)
     template.value = templateRes.template
+    if (date.value < dateMin.value) {
+      selectedDate.value = dateMin.value
+    }
 
     const hasRange = Boolean(requestedStartTime.value && requestedEndTime.value)
     let res = await fetchPublicRoomAvailability({

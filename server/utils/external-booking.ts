@@ -1,6 +1,6 @@
 import { createError } from 'h3'
 import type { D1Database } from '@cloudflare/workers-types'
-import { buildSlotStartIsosForDate, toIsoNoMs, toMinutes } from './booking-slots'
+import { buildSlotStartIsosForDate, toMinutes } from './booking-slots'
 import { nowIso, recalculateBookingSummary } from './booking-v2'
 import { addDaysToYmd, getBookingMinLeadDays, jakartaTodayYmd } from './settings'
 import { ensureCombinedRoomAvailable, ensureNoCombinedSlotOverlap, slotRangesFromStarts } from './combined-rooms'
@@ -98,7 +98,14 @@ export function timeLabelFromMinutes(minutes: number): string {
 }
 
 export function toIsoForJakartaDateTime(date: string, time: string): string {
-  return new Date(`${date}T${time}:00.000+07:00`).toISOString().replace(/\.\d{3}Z$/, 'Z')
+  requireYmd(date)
+  requireTime(time)
+
+  if (time === '24:00') {
+    return `${addDaysToYmd(date, 1)} 00:00:00`
+  }
+
+  return `${date} ${time}:00`
 }
 
 export function getRoomTimeConfig(room: RoomForBooking): { openStartMin: number; openEndMin: number; slotMinutes: number } {
@@ -279,8 +286,8 @@ export async function createApprovedBookingFromExternalRequest(
   const userId = await getExternalRequesterUserId(db)
   const starts = [...params.slotStartIsos].sort((a, b) => a.localeCompare(b))
   const firstStart = starts[0]
-  const stepMs = params.slotMinutes * 60 * 1000
-  const lastEnd = toIsoNoMs(new Date(new Date(starts[starts.length - 1]!).getTime() + stepMs))
+  const slotRanges = slotRangesFromStarts(starts, params.slotMinutes)
+  const lastEnd = slotRanges[slotRanges.length - 1]!.end
 
   const bookingResult = await db
     .prepare(
@@ -321,15 +328,13 @@ export async function createApprovedBookingFromExternalRequest(
     .run()
 
   const occurrenceId = Number(occurrenceResult.meta.last_row_id)
-  const slotStatements = starts.map((slotStartIso) => {
-    const slotStart = new Date(slotStartIso)
-    const slotEnd = toIsoNoMs(new Date(slotStart.getTime() + stepMs))
+  const slotStatements = slotRanges.map((slot) => {
     return db
       .prepare(
         `INSERT INTO booking_occurrence_slots (occurrence_id, start_at, end_at)
          VALUES (?1, ?2, ?3)`,
       )
-      .bind(occurrenceId, toIsoNoMs(slotStart), slotEnd)
+      .bind(occurrenceId, slot.start, slot.end)
   })
 
   if (slotStatements.length) {
