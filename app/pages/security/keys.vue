@@ -37,6 +37,34 @@
                 <span class="px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-semibold">Belum kembali</span>
               </div>
               <div class="mt-3 text-sm text-gray-600">Diambil: {{ formatDateTime(item.picked_up_at) }} oleh {{ item.picked_up_by_name || '-' }}</div>
+
+              <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+
+                <div class="text-sm text-gray-600">
+
+                  Diambil: {{ formatDateTime(item.picked_up_at) }} oleh {{ item.picked_up_by_name || '-' }}
+
+                </div>
+
+                <button
+
+                  v-if="item.can_cancel_pickup"
+
+                  type="button"
+
+                  class="px-3 py-2 rounded-xl bg-red-50 text-red-700 text-xs font-semibold hover:bg-red-100 disabled:opacity-50"
+
+                  :disabled="loading"
+
+                  @click="cancelPickup(item)"
+
+                >
+
+                  Batalkan Pengambilan
+
+                </button>
+
+              </div>
             </div>
             <div v-if="borrowed.length === 0" class="p-8 text-center text-gray-500">Tidak ada kunci yang sedang dipinjam.</div>
           </div>
@@ -70,7 +98,7 @@
 </template>
 
 <script setup lang="ts">
-import { fetchSecurityKeys } from '~/services/securityKeys'
+import { fetchSecurityKeys, cancelSecurityKeyPickup } from '~/services/securityKeys'
 
 const auth = useAuth()
 auth.loadFromStorage()
@@ -82,6 +110,48 @@ const rows = ref<any[]>([])
 
 const borrowed = computed(() => rows.value.filter((item) => item.picked_up_at && !item.returned_at))
 const ready = computed(() => rows.value.filter((item) => !item.picked_up_at))
+
+async function cancelPickup(item: any) {
+
+  if (!window.confirm(`Batalkan pengambilan kunci untuk ${item.room_name || 'ruangan ini'}?`)) {
+
+    return
+
+  }
+
+
+
+  loading.value = true
+
+  error.value = null
+
+
+
+  try {
+
+    await cancelSecurityKeyPickup(Number(item.id), auth.authHeaders())
+
+    await load()
+
+  } catch (e: any) {
+
+    error.value =
+
+      e?.data?.statusMessage ||
+
+      e?.statusMessage ||
+
+      'Gagal membatalkan pengambilan kunci.'
+
+  } finally {
+
+    loading.value = false
+
+  }
+
+}
+
+
 
 async function load() {
   loading.value = true

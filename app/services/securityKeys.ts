@@ -12,3 +12,34 @@ export function scanSecurityKey(token: string, headers: Record<string, string>) 
     body: { token },
   })
 }
+
+
+
+
+export function cancelSecurityKeyPickup(
+
+  keyId: number,
+
+  headers: Record<string, string>,
+
+) {
+
+  return $fetch<{
+
+    ok: boolean
+
+    keyId: number
+
+    bookingId: number
+
+    occurrenceId: number
+
+  }>(`/api/security/keys/${keyId}/cancel-pickup`, {
+
+    method: 'POST',
+
+    headers,
+
+  })
+
+}

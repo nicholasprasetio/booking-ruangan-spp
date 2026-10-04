@@ -2,6 +2,7 @@ import { getQuery } from 'h3'
 import { getCloudflareEnv } from '../../utils/cf-env'
 import { requireAuth } from '../../utils/auth'
 import { requirePermission } from '../../utils/permissions'
+import { hasRole } from '../../utils/roles'
 import { nowIso } from '../../utils/booking-v2'
 
 export default defineEventHandler(async (event) => {
@@ -58,6 +59,9 @@ export default defineEventHandler(async (event) => {
     ok: true,
     now,
     until,
-    data: rows.results || [],
+    data: (rows.results || []).map((row: any) => ({
+      ...row,
+      can_cancel_pickup: hasRole(auth, 'admin') && !!row.picked_up_at && !row.returned_at,
+    })),
   }
 })

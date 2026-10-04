@@ -84,11 +84,11 @@ let refreshTimer: ReturnType<typeof setInterval> | null = null
 let clockTimer: ReturnType<typeof setInterval> | null = null
 let marqueeObserver: ResizeObserver | null = null
 
-const currentItems = computed(() => rows.value.filter((item) => item.is_current).slice(0, 4))
-const upcomingItems = computed(() => rows.value.filter((item) => !item.is_current).slice(0, 8))
+const currentItems = computed(() => rows.value.filter((item) => item.is_current).slice(0, 6))
+const upcomingItems = computed(() => rows.value.filter((item) => !item.is_current).slice(0, 12))
 
 async function load() {
-  const res = await fetchDisplayRooms(auth.authHeaders(), 6)
+  const res = await fetchDisplayRooms(auth.authHeaders(), 12)
   rows.value = res.data || []
   nowIso.value = res.now
   refreshMarquees()
@@ -317,6 +317,173 @@ watch(rows, refreshMarquees, { deep: true })
   .upcoming-activity {
 
     font-size: clamp(.65rem, 1.7vh, 1rem);
+
+  }
+
+}
+
+
+
+
+@media (max-width: 767px) {
+
+  .display-shell {
+
+    min-height: 100dvh;
+
+    height: auto !important;
+
+    padding: .75rem;
+
+    gap: .75rem;
+
+  }
+
+
+
+  .display-main {
+
+    display: flex !important;
+
+    flex-direction: column;
+
+    gap: .75rem;
+
+    flex: none !important;
+
+    min-height: auto !important;
+
+  }
+
+
+
+  .display-main > section {
+
+    flex: none;
+
+    min-height: 0;
+
+  }
+
+
+
+  .display-section-title {
+
+    padding: .75rem 1rem !important;
+
+    font-size: 1.35rem !important;
+
+  }
+
+
+
+  .display-list {
+
+    display: flex !important;
+
+    flex-direction: column;
+
+    flex: none;
+
+    min-height: 0;
+
+    overflow: visible;
+
+  }
+
+
+
+  .display-row {
+
+    display: grid;
+
+    grid-template-columns: 82px minmax(0, 1fr);
+
+    gap: .6rem;
+
+    min-height: 82px;
+
+    padding: .65rem .75rem;
+
+    align-items: center;
+
+  }
+
+
+
+  .display-row > div:first-child {
+
+    font-size: clamp(1rem, 4.2vw, 1.45rem) !important;
+
+    line-height: 1.1;
+
+    white-space: nowrap;
+
+  }
+
+
+
+  .display-row .marquee {
+
+    font-size: clamp(1rem, 4.3vw, 1.45rem) !important;
+
+    line-height: 1.2;
+
+  }
+
+
+
+  .display-row .marquee.text-2xl,
+
+  .display-row .marquee.text-xl {
+
+    font-size: clamp(.78rem, 3.1vw, 1rem) !important;
+
+    margin-top: .15rem !important;
+
+  }
+
+
+
+  .display-row.upcoming-row {
+
+    min-height: 76px;
+
+  }
+
+
+
+  .display-row.upcoming-row > div:first-child {
+
+    font-size: clamp(1rem, 4.4vw, 1.4rem) !important;
+
+  }
+
+
+
+  .display-row.upcoming-row .marquee {
+
+    font-size: clamp(.95rem, 4vw, 1.3rem) !important;
+
+  }
+
+
+
+  .display-row.upcoming-row .marquee.text-xl {
+
+    font-size: clamp(.72rem, 2.9vw, .95rem) !important;
+
+  }
+
+}
+
+
+
+@media (min-width: 768px) and (max-height: 800px) {
+
+  .display-row {
+
+    min-height: 0;
 
   }
 
