@@ -116,32 +116,127 @@ export async function ensureCombinedRoomAvailable(db: D1Database, roomId: number
 }
 
 export async function ensureNoCombinedSlotOverlap(
+
   db: D1Database,
+
   roomId: number,
+
   slots: Array<{ start: string; end: string }>,
+
   message: string,
+
   options: { excludeBookingId?: number; excludeOccurrenceId?: number } = {},
+
 ): Promise<void> {
+
   if (!slots.length) return
+
+
+
   const relatedIds = await getBlockingRoomIds(db, roomId)
+
   const roomPlaceholders = relatedIds.map((_, i) => `?${i + 1}`).join(', ')
+
+
+
   for (let i = 0; i < slots.length; i += 35) {
+
     const chunk = slots.slice(i, i + 35)
-    const slotSql = chunk.map(() => '(bos.start_at < ? AND bos.end_at > ?)').join(' OR ')
+
+    let paramIndex = relatedIds.length + 1
+
+
+
+    const slotSql = chunk
+
+      .map(() => {
+
+        const endParam = paramIndex++
+
+        const startParam = paramIndex++
+
+        return `(bos.start_at < ?${endParam} AND bos.end_at > ?${startParam})`
+
+      })
+
+      .join(' OR ')
+
+
+
     const binds: unknown[] = [...relatedIds]
-    for (const slot of chunk) binds.push(slot.end, slot.start)
+
+
+
+    for (const slot of chunk) {
+
+      binds.push(slot.end, slot.start)
+
+    }
+
+
+
     let exclusion = ''
-    if (options.excludeBookingId) { exclusion += ' AND b.id != ?'; binds.push(options.excludeBookingId) }
-    if (options.excludeOccurrenceId) { exclusion += ' AND bo.id != ?'; binds.push(options.excludeOccurrenceId) }
+
+
+
+    if (options.excludeBookingId) {
+
+      const index = paramIndex++
+
+      exclusion += ` AND b.id != ?${index}`
+
+      binds.push(options.excludeBookingId)
+
+    }
+
+
+
+    if (options.excludeOccurrenceId) {
+
+      const index = paramIndex++
+
+      exclusion += ` AND bo.id != ?${index}`
+
+      binds.push(options.excludeOccurrenceId)
+
+    }
+
+
+
     const overlap = await db.prepare(
-      `SELECT bos.start_at FROM booking_occurrence_slots bos JOIN booking_occurrences bo ON bo.id = bos.occurrence_id
+
+      `SELECT bos.start_at
+
+       FROM booking_occurrence_slots bos
+
+       JOIN booking_occurrences bo ON bo.id = bos.occurrence_id
+
        JOIN bookings b ON b.id = bo.booking_id
-       WHERE COALESCE(bo.room_id, b.room_id) IN (${roomPlaceholders}) AND b.deleted_at IS NULL
-         AND bo.status IN ('pending','approved')${exclusion} AND (${slotSql}) LIMIT 1`,
+
+       WHERE COALESCE(bo.room_id, b.room_id) IN (${roomPlaceholders})
+
+         AND b.deleted_at IS NULL
+
+         AND bo.status IN ('pending','approved')${exclusion}
+
+         AND (${slotSql})
+
+       LIMIT 1`,
+
     ).bind(...binds).first<{ start_at: string }>()
-    if (overlap) throw createError({ statusCode: 409, statusMessage: message })
+
+
+
+    if (overlap) {
+
+      throw createError({ statusCode: 409, statusMessage: message })
+
+    }
+
   }
+
 }
+
 
 export function slotRangesFromStarts(starts: string[], slotMinutes: number): Array<{ start: string; end: string }> {
   const addMinutes = (value: string) => {

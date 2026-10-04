@@ -16,6 +16,7 @@ import { ensureCombinedRoomAvailable, ensureNoCombinedSlotOverlap, slotRangesFro
 type RescheduleBookingBody = {
   bookingId?: number
   occurrenceId?: number
+  roomId?: number
   date?: string
   slots?: string[]
   activityName?: string
@@ -50,6 +51,16 @@ export default defineEventHandler(async (event) => {
   }
 
   const booking = await requireBookingAccess(env.DB, bookingId, Number(auth.sub), hasRole(auth, 'admin'))
+
+  const requestedRoomId = Number(body?.roomId)
+  const roomId = Number.isInteger(requestedRoomId) && requestedRoomId > 0
+    ? requestedRoomId
+    : Number(booking.room_id)
+
+  if (!roomId) {
+    throw createError({ statusCode: 400, statusMessage: 'Invalid roomId' })
+  }
+
   const target = await resolveOccurrenceForAction(env.DB, {
     bookingId,
     occurrenceId,
@@ -69,13 +80,13 @@ export default defineEventHandler(async (event) => {
        FROM rooms
        WHERE id = ?1 AND deleted_at IS NULL AND COALESCE(available_for_booking, 1) = 1`,
     )
-    .bind(Number(booking.room_id))
+    .bind(roomId)
     .first<{ open_time_start: string | null; open_time_end: string | null; slot_minutes: number | null }>()
 
   if (!room) {
     throw createError({ statusCode: 404, statusMessage: 'Room not found or not available for booking' })
   }
-  await ensureCombinedRoomAvailable(env.DB, Number(booking.room_id))
+  await ensureCombinedRoomAvailable(env.DB, roomId)
 
   const slotMinutes = room.slot_minutes || 60
   const openStartMin = toMinutes(room.open_time_start || '00:00')
@@ -90,7 +101,7 @@ export default defineEventHandler(async (event) => {
   })
 
   await ensureNoCombinedSlotOverlap(
-    env.DB, Number(booking.room_id), slotRangesFromStarts(slotStartIsos, slotMinutes),
+    env.DB, roomId, slotRangesFromStarts(slotStartIsos, slotMinutes),
     'Room is not available in the selected slots', { excludeOccurrenceId: target.id },
   )
 
@@ -171,15 +182,16 @@ export default defineEventHandler(async (event) => {
   statements.push(
     env.DB.prepare(
       `UPDATE booking_occurrences
-       SET occurrence_date = ?2,
+       SET room_id = ?2,
+           occurrence_date = ?3,
            status = 'pending',
-           start_at = ?3,
-           end_at = ?4,
+           start_at = ?4,
+           end_at = ?5,
            rejection_reason = NULL,
            cancel_reason = NULL,
-           updated_at = ?5
+           updated_at = ?6
        WHERE id = ?1`,
-    ).bind(target.id, date, nextStart, nextEnd, at),
+    ).bind(target.id, roomId, date, nextStart, nextEnd, at),
   )
   statements.push(
     env.DB.prepare(`DELETE FROM booking_occurrence_slots WHERE occurrence_id = ?1`).bind(target.id),

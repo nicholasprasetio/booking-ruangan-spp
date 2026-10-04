@@ -200,7 +200,7 @@ function addDays(ymd: string, days: number): string {
 }
 
 const dateMin = computed(() => addDays(jakartaTodayYmd(), Math.max(0, minLeadDays.value)))
-const date = ref(jakartaTodayYmd())
+const date = ref(addDays(jakartaTodayYmd(), Math.max(0, minLeadDays.value)))
 const startTime = ref('')
 const endTime = ref('')
 

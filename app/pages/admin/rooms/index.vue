@@ -293,7 +293,7 @@
           <h2 class="text-2xl font-bold text-gray-900 mb-4">{{ editingCombinedRoom ? tr('Edit Ruangan Gabungan', 'Edit Combined Room') : tr('Buat Ruangan Gabungan', 'Create Combined Room') }}</h2>
           <form @submit.prevent="saveCombinedRoom" class="space-y-4">
             <UiInput v-model="combinedName" :label="tr('Nama Ruangan Gabungan', 'Combined Room Name')" required />
-            <div><label class="block text-sm font-semibold text-gray-700 mb-2">{{ tr('Pilih ruangan satuan (minimal 2)', 'Select member rooms (minimum 2)') }}</label><div class="max-h-56 overflow-y-auto rounded-xl border border-gray-200 p-2 space-y-1"><label v-for="room in selectableMemberRooms" :key="room.id" class="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50"><input v-model="combinedMemberIds" type="checkbox" :value="room.id" class="rounded border-gray-300 text-violet-600" /><span class="text-sm text-gray-800">{{ room.name }} <span class="text-gray-400">({{ room.capacity || '-' }})</span></span></label></div><p class="mt-2 text-xs text-gray-500">{{ tr('Kapasitas, lokasi, jam operasional, dan interval slot dihitung dari ruangan satuan.', 'Capacity, location, operating hours, and slot interval are calculated from member rooms.') }}</p></div>
+            <div><label class="block text-sm font-semibold text-gray-700 mb-2">{{ tr('Pilih ruangan satuan (minimal 2)', 'Select member rooms (minimum 2)') }}</label><div class="max-h-56 overflow-y-auto rounded-xl border border-gray-200 p-2 space-y-1"><div v-if="loadingCombinedRooms" class="p-3 text-sm text-gray-500">Memuat semua ruangan...</div><label v-else v-for="room in selectableMemberRooms" :key="room.id" class="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50"><input v-model="combinedMemberIds" type="checkbox" :value="room.id" class="rounded border-gray-300 text-violet-600" /><span class="text-sm text-gray-800">{{ room.name }} <span class="text-gray-400">({{ room.capacity || '-' }})</span></span></label></div><p class="mt-2 text-xs text-gray-500">{{ tr('Kapasitas, lokasi, jam operasional, dan interval slot dihitung dari ruangan satuan.', 'Capacity, location, operating hours, and slot interval are calculated from member rooms.') }}</p></div>
             <label class="flex items-center gap-2 text-sm text-gray-700"><input v-model="combinedAvailable" type="checkbox" class="rounded border-gray-300 text-violet-600" /> {{ tr('Tersedia untuk booking', 'Available for booking') }}</label>
             <div v-if="combinedSaveError" class="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ combinedSaveError }}</div>
             <div class="flex justify-end gap-3"><button type="button" class="px-4 py-2 rounded-xl bg-gray-200 font-semibold" @click="closeCombinedModal">{{ tr('Batal', 'Cancel') }}</button><button type="submit" :disabled="savingCombined" class="px-4 py-2 rounded-xl bg-violet-600 text-white font-semibold">{{ savingCombined ? tr('Menyimpan...', 'Saving...') : tr('Simpan', 'Save') }}</button></div>
@@ -507,7 +507,17 @@ const combinedMemberIds = ref<number[]>([])
 const combinedAvailable = ref(true)
 const savingCombined = ref(false)
 const combinedSaveError = ref<string | null>(null)
-const selectableMemberRooms = computed(() => rooms.value.filter((room) => !room.is_combined && room.id !== editingCombinedRoom.value?.id))
+const combinedRooms = ref<Room[]>([])
+const loadingCombinedRooms = ref(false)
+const selectableMemberRooms = computed(() =>
+
+  combinedRooms.value.filter(
+
+    (room) => !room.is_combined && room.id !== editingCombinedRoom.value?.id,
+
+  ),
+
+)
 
 // ── Selection ──
 const isAllSelected = computed(() => rooms.value.length > 0 && rooms.value.every(r => selectedRoomIds.value.has(r.id)))
@@ -621,20 +631,119 @@ function openEditModal(room: Room) {
   showModal.value = true
 }
 
-function openCombinedModal(room: Room | null = null) {
+async function openCombinedModal(room: Room | null = null) {
+
   editingCombinedRoom.value = room
+
   combinedName.value = room?.name || ''
+
   combinedMemberIds.value = room?.members?.map((member) => member.id) || []
+
   combinedAvailable.value = room?.available_for_booking !== false && room?.available_for_booking !== 0
+
   combinedSaveError.value = null
+
   showCombinedModal.value = true
+
+
+
+  loadingCombinedRooms.value = true
+
+
+
+  try {
+
+    const firstPage = await fetchAdminRooms(
+
+      { page: 1, pageSize: 100 },
+
+      auth.authHeaders(),
+
+    )
+
+
+
+    let allRooms = (firstPage.data || []).map((item) => ({
+
+      ...item,
+
+      photos: item.photos || [],
+
+    }))
+
+
+
+    for (let page = 2; page <= (firstPage.meta.totalPages || 1); page++) {
+
+      const pageRes = await fetchAdminRooms(
+
+        { page, pageSize: 100 },
+
+        auth.authHeaders(),
+
+      )
+
+
+
+      allRooms = [
+
+        ...allRooms,
+
+        ...(pageRes.data || []).map((item) => ({
+
+          ...item,
+
+          photos: item.photos || [],
+
+        })),
+
+      ]
+
+    }
+
+
+
+    combinedRooms.value = allRooms
+
+  } catch (e: any) {
+
+    combinedRooms.value = []
+
+    combinedSaveError.value =
+
+      e?.data?.statusMessage ||
+
+      e?.statusMessage ||
+
+      e?.message ||
+
+      tr('Gagal memuat daftar ruangan.', 'Failed to load room list.')
+
+  } finally {
+
+    loadingCombinedRooms.value = false
+
+  }
+
 }
 
+
 function closeCombinedModal() {
+
   showCombinedModal.value = false
+
   editingCombinedRoom.value = null
+
   combinedSaveError.value = null
+
+  combinedMemberIds.value = []
+
+  combinedRooms.value = []
+
+  loadingCombinedRooms.value = false
+
 }
+
 
 async function saveCombinedRoom() {
   if (!combinedName.value.trim() || combinedMemberIds.value.length < 2) {
