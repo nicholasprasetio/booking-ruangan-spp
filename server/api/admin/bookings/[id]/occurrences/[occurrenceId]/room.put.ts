@@ -20,18 +20,19 @@ export default defineEventHandler(async (event) => {
   if (!targetRoomId) throw createError({ statusCode: 400, statusMessage: 'Invalid roomId' })
 
   const occurrence = await env.DB.prepare(
-    `SELECT bo.id, bo.status, COALESCE(bo.room_id, b.room_id) AS room_id, bo.start_at, bo.end_at,
+    `SELECT bo.id, bo.status, COALESCE(bo.room_id, b.room_id) AS room_id, source_room.name AS room_name, bo.start_at, bo.end_at,
             b.activity_name, u.email AS user_email, COALESCE(b.external_requester_name, u.fullname) AS user_name
      FROM booking_occurrences bo
      JOIN bookings b ON b.id = bo.booking_id
      JOIN users u ON u.id = b.user_id
+     JOIN rooms source_room ON source_room.id = COALESCE(bo.room_id, b.room_id)
      WHERE bo.id = ?1
        AND bo.booking_id = ?2
        AND b.deleted_at IS NULL
      LIMIT 1`,
   )
     .bind(occurrenceId, bookingId)
-    .first<{ id: number; status: string; room_id: number; start_at: string; end_at: string; activity_name: string | null; user_email: string | null; user_name: string | null }>()
+    .first<{ id: number; status: string; room_id: number; room_name: string | null; start_at: string; end_at: string; activity_name: string | null; user_email: string | null; user_name: string | null }>()
 
   if (!occurrence) throw createError({ statusCode: 404, statusMessage: 'Occurrence not found' })
   if (!['pending', 'approved', 'rejected'].includes(occurrence.status)) {
@@ -64,6 +65,13 @@ export default defineEventHandler(async (event) => {
     'Ruangan tujuan tidak tersedia pada jadwal sesi ini', { excludeOccurrenceId: occurrenceId })
 
   const at = nowIso()
+  const occurrenceCount = await env.DB.prepare(
+    `SELECT COUNT(*) AS total
+     FROM booking_occurrences
+     WHERE booking_id = ?1`,
+  ).bind(bookingId).first<{ total: number }>()
+  const updateBookingRoom = Number(occurrenceCount?.total || 0) === 1
+
   await env.DB.batch([
     env.DB.prepare(
       `UPDATE booking_occurrences
@@ -71,6 +79,16 @@ export default defineEventHandler(async (event) => {
            updated_at = ?3
        WHERE id = ?1`,
     ).bind(occurrenceId, targetRoomId, at),
+    ...(updateBookingRoom
+      ? [
+          env.DB.prepare(
+            `UPDATE bookings
+             SET room_id = ?2,
+                 updated_at = ?3
+             WHERE id = ?1`,
+          ).bind(bookingId, targetRoomId, at),
+        ]
+      : []),
     env.DB.prepare(
       `INSERT INTO booking_events (booking_id, occurrence_id, actor_user_id, type, payload, created_at)
        VALUES (?1, ?2, ?3, 'room_changed', ?4, ?5)`,
@@ -78,7 +96,13 @@ export default defineEventHandler(async (event) => {
       bookingId,
       occurrenceId,
       Number(auth.sub),
-      JSON.stringify({ scope: 'occurrence', fromRoomId: Number(occurrence.room_id), toRoomId: targetRoomId, toRoomName: room.name }),
+      JSON.stringify({
+        scope: 'occurrence',
+        fromRoomId: Number(occurrence.room_id),
+        fromRoomName: occurrence.room_name,
+        toRoomId: targetRoomId,
+        toRoomName: room.name,
+      }),
       at,
     ),
   ])

@@ -20,15 +20,17 @@ export default defineEventHandler(async (event) => {
   const env = getCloudflareEnv(event)
 
   const booking = await env.DB.prepare(
-    `SELECT b.id, b.room_id, b.series_id, b.activity_name, u.email AS user_email, COALESCE(b.external_requester_name, u.fullname) AS user_name
+    `SELECT b.id, b.room_id, b.series_id, b.activity_name, old_room.name AS room_name,
+            u.email AS user_email, COALESCE(b.external_requester_name, u.fullname) AS user_name
      FROM bookings b
      JOIN users u ON u.id = b.user_id
+     JOIN rooms old_room ON old_room.id = b.room_id
      WHERE b.id = ?1
        AND b.deleted_at IS NULL
      LIMIT 1`,
   )
     .bind(bookingId)
-    .first<{ id: number; room_id: number; series_id: number | null; activity_name: string | null; user_email: string | null; user_name: string | null }>()
+    .first<{ id: number; room_id: number; series_id: number | null; activity_name: string | null; room_name: string | null; user_email: string | null; user_name: string | null }>()
 
   if (!booking) throw createError({ statusCode: 404, statusMessage: 'Booking not found' })
   if (Number(booking.room_id) === targetRoomId) {
@@ -101,7 +103,12 @@ export default defineEventHandler(async (event) => {
     ).bind(
       bookingId,
       Number(auth.sub),
-      JSON.stringify({ fromRoomId: Number(booking.room_id), toRoomId: targetRoomId, toRoomName: room.name }),
+      JSON.stringify({
+        fromRoomId: Number(booking.room_id),
+        fromRoomName: booking.room_name,
+        toRoomId: targetRoomId,
+        toRoomName: room.name,
+      }),
       at,
     ),
   ])

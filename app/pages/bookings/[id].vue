@@ -711,8 +711,8 @@ function eventDescription(event: BookingEvent): string {
   }
 
   if (event.type === 'room_changed') {
-    const fromRoom = payload.old_room_name || payload.from_room_name || payload.old_room_id || payload.from_room_id
-    const toRoom = payload.new_room_name || payload.to_room_name || payload.new_room_id || payload.to_room_id
+    const fromRoom = payload.fromRoomName || payload.old_room_name || payload.from_room_name || payload.fromRoomId || payload.old_room_id || payload.from_room_id
+    const toRoom = payload.toRoomName || payload.new_room_name || payload.to_room_name || payload.toRoomId || payload.new_room_id || payload.to_room_id
     return [
       fromRoom ? `${tr('Dari', 'From')}: ${fromRoom}` : '',
       toRoom ? `${tr('Ke', 'To')}: ${toRoom}` : '',

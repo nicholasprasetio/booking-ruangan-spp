@@ -3,11 +3,11 @@
     <div class="display-shell h-screen flex flex-col">
       <header class="flex items-end justify-between gap-6">
         <div>
-          <div class="text-sky-300 text-2xl font-semibold">{{ tr('Jadwal Penggunaan Ruangan', 'Room Usage Schedule') }}</div>
-          <div class="text-6xl font-black tracking-normal">{{ clock }}</div>
+          <div class="display-heading text-sky-300 text-2xl font-semibold">{{ tr('Jadwal Penggunaan Ruangan', 'Room Usage Schedule') }}</div>
+          <div class="display-clock text-6xl font-black tracking-normal">{{ clock }}</div>
         </div>
         <div class="flex items-center gap-4 text-right text-slate-300">
-          <div>
+          <div class="display-date">
             <!-- <div>Auto refresh 60 detik</div> -->
             <div>{{ formatDate(nowIso) }}</div>
           </div>
@@ -23,24 +23,24 @@
         </div>
       </header>
 
-      <main class="display-main grid grid-cols-1 xl:grid-cols-[1.1fr_1fr] min-h-0 flex-1">
+      <main class="display-main grid grid-cols-1 md:grid-cols-[1.1fr_1fr] min-h-0 flex-1">
         <section class="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden flex flex-col">
           <div class="display-section-title px-6 py-4 bg-emerald-500 text-slate-950 font-black text-3xl">{{ tr('Sedang Digunakan', 'In Use Now') }}</div>
           <div class="display-list divide-y divide-slate-800">
             <div v-for="item in currentItems" :key="item.occurrence_id" class="display-row grid items-center">
-              <div class="text-3xl font-black text-emerald-300">
+              <div class="current-time text-3xl font-black text-emerald-300">
                 {{ timeOnly(item.start_at) }} - {{ timeOnly(item.end_at) }}
               </div>
               <div class="min-w-0">
-                <div class="marquee text-4xl font-black leading-tight">
+                <div class="marquee current-room text-4xl font-black leading-tight">
                   <span class="marquee-content">{{ item.room_name }}</span>
                 </div>
-                <div class="marquee mt-2 text-2xl text-slate-200">
+                <div class="marquee current-activity mt-2 text-2xl text-slate-200">
                   <span class="marquee-content">{{ item.activity_name || tr('Peminjaman Ruangan', 'Room Booking') }}</span>
                 </div>
               </div>
             </div>
-            <div v-if="currentItems.length === 0" class="p-10 text-4xl text-slate-400">{{ tr('Tidak ada ruangan yang sedang digunakan.', 'No rooms are currently in use.') }}</div>
+            <div v-if="currentItems.length === 0" class="display-empty p-10 text-4xl text-slate-400">{{ tr('Tidak ada ruangan yang sedang digunakan.', 'No rooms are currently in use.') }}</div>
           </div>
         </section>
 
@@ -48,17 +48,17 @@
           <div class="display-section-title px-6 py-4 bg-sky-400 text-slate-950 font-black text-3xl">{{ tr('Berikutnya', 'Up Next') }}</div>
           <div class="divide-y divide-slate-800 overflow-hidden">
             <div v-for="item in upcomingItems" :key="item.occurrence_id" class="display-row upcoming-row grid items-center">
-              <div class="text-4xl font-black text-sky-300">{{ timeOnly(item.start_at) }}</div>
+              <div class="upcoming-time text-4xl font-black text-sky-300">{{ timeOnly(item.start_at) }}</div>
               <div class="min-w-0">
-                <div class="marquee text-3xl font-bold">
+                <div class="marquee upcoming-room text-3xl font-bold">
                   <span class="marquee-content">{{ item.room_name }}</span>
                 </div>
-                <div class="marquee text-xl text-slate-300">
+                <div class="marquee upcoming-activity text-xl text-slate-300">
                   <span class="marquee-content">{{ item.activity_name || tr('Peminjaman Ruangan', 'Room Booking') }}</span>
                 </div>
               </div>
             </div>
-            <div v-if="upcomingItems.length === 0" class="p-10 text-3xl text-slate-400">{{ tr('Tidak ada jadwal beberapa jam ke depan.', 'No schedules in the next few hours.') }}</div>
+            <div v-if="upcomingItems.length === 0" class="display-empty p-10 text-3xl text-slate-400">{{ tr('Tidak ada jadwal beberapa jam ke depan.', 'No schedules in the next few hours.') }}</div>
           </div>
         </section>
       </main>
@@ -236,7 +236,7 @@ watch(rows, refreshMarquees, { deep: true })
 
 
 
-@media (max-height: 800px) {
+@media (max-height: 800px), (min-width: 768px) and (max-width: 1279px) {
 
   .display-shell {
 
@@ -261,6 +261,30 @@ watch(rows, refreshMarquees, { deep: true })
     padding: .65rem 1rem !important;
 
     font-size: 1.35rem !important;
+
+  }
+
+
+
+  .display-heading {
+
+    font-size: 1.15rem !important;
+
+  }
+
+
+
+  .display-clock {
+
+    font-size: 2.8rem !important;
+
+  }
+
+
+
+  .display-date {
+
+    font-size: .85rem;
 
   }
 
@@ -317,6 +341,16 @@ watch(rows, refreshMarquees, { deep: true })
   .upcoming-activity {
 
     font-size: clamp(.65rem, 1.7vh, 1rem);
+
+  }
+
+
+
+  .display-empty {
+
+    padding: 1.5rem !important;
+
+    font-size: 1.6rem !important;
 
   }
 
