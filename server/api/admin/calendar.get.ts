@@ -1,14 +1,17 @@
 import { createError, getQuery } from 'h3'
 import { getCloudflareEnv } from '../../utils/cf-env'
 import { requireAuth } from '../../utils/auth'
-import { requireRole } from '../../utils/roles'
+import { userHasPermission } from '../../utils/permissions'
+import { hasRole } from '../../utils/roles'
 import { mergeContiguousCalendarSlots } from '../../utils/calendar-events'
 
 export default defineEventHandler(async (event) => {
   const auth = await requireAuth(event)
-  requireRole(event, auth, ['admin'])
-
   const env = getCloudflareEnv(event)
+  const canViewCalendar =
+    hasRole(auth, 'admin') || await userHasPermission(env.DB, auth.sub, 'menu.admin_calendar')
+  if (!canViewCalendar) throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
+
   const q = getQuery(event)
 
   const start = typeof q.start === 'string' ? q.start.trim() : ''
