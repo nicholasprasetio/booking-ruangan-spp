@@ -548,4 +548,119 @@ watch(rows, refreshMarquees, { deep: true })
     animation: none;
   }
 }
+
+
+/* TV layout fix: compact schedule rows */
+
+.display-list {
+
+  display: flex !important;
+
+  flex-direction: column !important;
+
+  gap: 0 !important;
+
+  min-height: 0 !important;
+
+}
+
+
+
+.display-row {
+
+  height: auto !important;
+
+  min-height: clamp(76px, 5.2vh, 112px) !important;
+
+  flex: 0 0 auto !important;
+
+  align-items: center !important;
+
+  box-sizing: border-box !important;
+
+  padding: clamp(5px, 0.65vh, 9px)
+
+           clamp(8px, 0.8vw, 14px) !important;
+
+}
+
+
+
+.display-row > :first-child,
+
+.display-row > :last-child {
+
+  min-width: 0 !important;
+
+  min-height: 0 !important;
+
+  display: flex !important;
+
+  flex-direction: column !important;
+
+  justify-content: center !important;
+
+  gap: clamp(3px, 0.4vh, 5px) !important;
+
+}
+
+
+
+.display-row > :first-child > *,
+
+.display-row > :last-child > * {
+
+  margin: 0 !important;
+
+  line-height: 1.15 !important;
+
+}
+
+
+
+.display-row > :first-child > * {
+
+  flex: 0 0 auto !important;
+
+  white-space: nowrap;
+
+  font-size: clamp(24px, 1vw, 42px) !important;
+
+  font-weight: 800 !important;
+
+}
+
+
+
+.display-row > :last-child > :first-child {
+
+  font-size: clamp(20px, 0.95vw, 38px) !important;
+
+  line-height: 1.1 !important;
+
+  overflow-wrap: anywhere;
+
+  font-weight: 800 !important;
+
+}
+
+
+
+.display-row > :last-child > :last-child {
+
+  font-size: clamp(14px, 0.65vw, 26px) !important;
+
+  line-height: 1.15 !important;
+
+  display: -webkit-box !important;
+
+  -webkit-box-orient: vertical;
+
+  -webkit-line-clamp: 2;
+
+  overflow: hidden;
+
+}
+
+
 </style>
