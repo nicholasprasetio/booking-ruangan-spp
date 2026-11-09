@@ -1,5 +1,5 @@
 <template>
-  <aside class="flex w-64 bg-white border-r border-gray-200 h-screen flex-col shadow-lg overflow-hidden">
+  <aside class="flex w-64 bg-white border-r border-gray-200 h-full min-h-0 flex-col shadow-lg overflow-hidden">
     <!-- Logo Section -->
     <div class="p-6 border-b border-gray-200">
       <NuxtLink to="/" class="flex items-center space-x-3 hover:opacity-80 transition">
@@ -12,7 +12,7 @@
     </div>
 
     <!-- Navigation Menu -->
-    <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
+    <nav class="flex-1 min-h-0 p-4 space-y-1 overflow-y-auto">
       <ClientOnly>
         <template v-for="menu in visibleMenus" :key="menu.path || menu.section || menu.label">
           <!-- Divider -->
