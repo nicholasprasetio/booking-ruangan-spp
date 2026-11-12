@@ -4,6 +4,7 @@ import { requireAuth } from '../../utils/auth'
 import { requirePermission } from '../../utils/permissions'
 import { hasRole } from '../../utils/roles'
 import { nowIso } from '../../utils/booking-v2'
+import { addMinutesToWibDatetime } from '../../utils/booking-slots'
 
 export default defineEventHandler(async (event) => {
   const auth = await requireAuth(event)
@@ -13,7 +14,7 @@ export default defineEventHandler(async (event) => {
   const q = getQuery(event)
   const hoursAhead = Math.max(1, Math.min(24, Number(q.hoursAhead || 8) || 8))
   const now = nowIso()
-  const until = new Date(new Date(now).getTime() + hoursAhead * 60 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z')
+  const until = addMinutesToWibDatetime(now, hoursAhead * 60)
 
   const rows = await env.DB.prepare(
     `SELECT

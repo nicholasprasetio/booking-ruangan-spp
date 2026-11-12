@@ -3,7 +3,7 @@ import type { D1Database } from '@cloudflare/workers-types'
 import { getCloudflareEnv } from '../../utils/cf-env'
 import { requireAuth } from '../../utils/auth'
 import { hasRole } from '../../utils/roles'
-import { buildSlotStartIsosForDate, toIsoNoMs, toMinutes, toUniqueSlotLabels } from '../../utils/booking-slots'
+import { addMinutesToWibDatetime, buildSlotStartIsosForDate, toMinutes, toUniqueSlotLabels } from '../../utils/booking-slots'
 import { generateRecurrenceDates, parseRecurrenceRule, type RecurrenceRule } from '../../utils/booking-recurrence'
 import { ensureBookingKeyTokensForBooking, nowIso, recalculateBookingSummary } from '../../utils/booking-v2'
 import { ensureBookingLeadTime } from '../../utils/settings'
@@ -101,49 +101,6 @@ async function insertOccurrenceWithSlots(
 
 
 
-  function addMinutesToWibDatetime(value: string, minutes: number): string {
-
-    const match = value.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/)
-
-    if (!match) {
-
-      throw createError({ statusCode: 400, statusMessage: 'Invalid slot datetime' })
-
-    }
-
-
-
-    const [, y, mo, d, h, m, sec] = match
-
-    const base = Date.UTC(
-
-      Number(y),
-
-      Number(mo) - 1,
-
-      Number(d),
-
-      Number(h),
-
-      Number(m),
-
-      Number(sec),
-
-    )
-
-
-
-    const result = new Date(base + minutes * 60 * 1000)
-
-
-
-    const pad = (n: number) => String(n).padStart(2, '0')
-
-
-
-    return `${result.getUTCFullYear()}-${pad(result.getUTCMonth() + 1)}-${pad(result.getUTCDate())} ${pad(result.getUTCHours())}:${pad(result.getUTCMinutes())}:${pad(result.getUTCSeconds())}`
-
-  }
 
 
 

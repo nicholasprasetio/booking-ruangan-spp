@@ -4,6 +4,22 @@ export function toIsoNoMs(d: Date): string {
   return d.toISOString().replace(/\.\d{3}Z$/, 'Z')
 }
 
+/**
+ * Adds minutes to a WIB wall-clock DATETIME string ("YYYY-MM-DD HH:MM:SS")
+ * without going through the server's local timezone. `new Date(value)` would
+ * read the string as server-local time and `toISOString()` would then shift it.
+ */
+export function addMinutesToWibDatetime(value: string, minutes: number): string {
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/)
+  if (!match) {
+    throw createError({ statusCode: 400, statusMessage: 'Invalid slot datetime' })
+  }
+  const [, y, mo, d, h, mi, se = '0'] = match
+  const next = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(se)) + minutes * 60 * 1000)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${next.getUTCFullYear()}-${pad(next.getUTCMonth() + 1)}-${pad(next.getUTCDate())} ${pad(next.getUTCHours())}:${pad(next.getUTCMinutes())}:${pad(next.getUTCSeconds())}`
+}
+
 export function assertTime(t: string, invalidTimeFormatMessage = 'Invalid time (expected HH:MM)'): void {
   if (!/^\d{2}:\d{2}$/.test(t)) {
     throw createError({ statusCode: 400, statusMessage: invalidTimeFormatMessage })

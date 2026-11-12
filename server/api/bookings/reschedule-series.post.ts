@@ -3,7 +3,7 @@ import type { D1Database } from '@cloudflare/workers-types'
 import { getCloudflareEnv } from '../../utils/cf-env'
 import { requireAuth } from '../../utils/auth'
 import { hasRole } from '../../utils/roles'
-import { buildSlotStartIsosForDate, toIsoNoMs, toMinutes, toUniqueSlotLabels } from '../../utils/booking-slots'
+import { addMinutesToWibDatetime, buildSlotStartIsosForDate, toMinutes, toUniqueSlotLabels } from '../../utils/booking-slots'
 import { generateRecurrenceDates, parseRecurrenceRule } from '../../utils/booking-recurrence'
 import { getOccurrenceSlotsMap, nowIso, recalculateBookingSummary, requireBookingAccess } from '../../utils/booking-v2'
 import { ensureBookingLeadTime } from '../../utils/settings'
@@ -123,7 +123,6 @@ export default defineEventHandler(async (event) => {
   const allSlotStarts: string[] = []
   let totalSlotCount = 0
   const at = nowIso()
-  const stepMs = slotMinutes * 60 * 1000
 
   for (const ymd of dates) {
     const starts = buildSlotStartIsosForDate({
@@ -135,7 +134,7 @@ export default defineEventHandler(async (event) => {
     })
     const sortedStarts = [...starts].sort((a, b) => a.localeCompare(b))
     if (sortedStarts.length) {
-      const lastEnd = toIsoNoMs(new Date(new Date(sortedStarts[sortedStarts.length - 1]!).getTime() + stepMs))
+      const lastEnd = addMinutesToWibDatetime(sortedStarts[sortedStarts.length - 1]!, slotMinutes)
       if (lastEnd < at) {
         throw createError({ statusCode: 409, statusMessage: 'Jadwal baru tidak boleh sudah lewat' })
       }
@@ -291,7 +290,7 @@ export default defineEventHandler(async (event) => {
   for (const ymd of Array.from(slotStartIsosByDate.keys()).sort()) {
     const starts = [...(slotStartIsosByDate.get(ymd) || [])].sort((a, b) => a.localeCompare(b))
     const firstStart = starts[0]
-    const lastEnd = toIsoNoMs(new Date(new Date(starts[starts.length - 1]!).getTime() + stepMs))
+    const lastEnd = addMinutesToWibDatetime(starts[starts.length - 1]!, slotMinutes)
 
     const occurrenceRes = await env.DB
       .prepare(
@@ -307,15 +306,14 @@ export default defineEventHandler(async (event) => {
 
     const newSlotsForPayload: Array<{ start_at: string; end_at: string }> = []
     const slotStatements = [] as ReturnType<D1Database['prepare']>[]
-    for (const slotStartIso of starts) {
-      const slotStart = new Date(slotStartIso)
-      const slotEnd = toIsoNoMs(new Date(slotStart.getTime() + stepMs))
-      newSlotsForPayload.push({ start_at: toIsoNoMs(slotStart), end_at: slotEnd })
+    for (const slotStart of starts) {
+      const slotEnd = addMinutesToWibDatetime(slotStart, slotMinutes)
+      newSlotsForPayload.push({ start_at: slotStart, end_at: slotEnd })
       slotStatements.push(
         env.DB.prepare(
           `INSERT INTO booking_occurrence_slots (occurrence_id, start_at, end_at)
            VALUES (?1, ?2, ?3)`,
-        ).bind(occurrenceId, toIsoNoMs(slotStart), slotEnd),
+        ).bind(occurrenceId, slotStart, slotEnd),
       )
     }
 
