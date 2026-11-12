@@ -8,7 +8,7 @@ export default defineNuxtConfig({
     '@nuxt/icon'
   ],
   nitro: {
-    preset: 'cloudflare-module'
+    preset: 'node-server'
   },
   app: {
     head: {
